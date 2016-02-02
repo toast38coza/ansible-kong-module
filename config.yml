@@ -16,8 +16,23 @@
           upstream_url: "http://mockbin.com"
           request_host: "mockbin.com"
         - name: "Github"
+          upstream_url: "https://github.com"
+          request_host: "github.com"
+
+    - name: Update APIs
+      kong:
+        kong_admin_uri: "{{admin_base_url}}"     
+        name: "{{item.name}}"
+        upstream_url: "{{item.upstream_url}}"
+        request_host: "{{item.request_host}}"       
+        state: latest
+      with_items:
+        - name: "Github"
           upstream_url: "https://api.github.com"
           request_host: "github.com"
+      register: result
+
+    - debug: var=result
 
     - name: Delete mockbin 
       kong:

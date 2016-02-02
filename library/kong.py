@@ -3,7 +3,7 @@
 DOCUMENTATION = '''
 ---
 module: kong
-short_description: Register sites with kong api gateway
+short_description: Configure a Kong API Gateway
 
 '''
 
@@ -31,18 +31,20 @@ class Kong:
     def __init__(self, base_uri):
         self.base_url = base_uri
 
-    def call(self, path, data):
-        print "calling"
-
-    
-
 class KongAPI(Kong):
 
     def __url(self, path):
         return "{}{}" . format (self.base_url, path)
 
-    def add(self, name, upstream_url, request_host=None, request_path=None, strip_request_path=False, preserve_host=False):
+    def _add_or_update(self, method, name, upstream_url, request_host=None, request_path=None, strip_request_path=False, preserve_host=False):
+        
+        allowed_methods = ['post', 'patch']
+        assert method in allowed_methods, \
+            "Method {} is not allowed. Allowed methods are: {}" . format (method, allowed_methods)
+
         url = self.__url("/apis/")
+        if method == 'patch':
+            url = "{}{}" . format (url, name)
         data = {
             "name": name,
             "upstream_url": upstream_url,
@@ -54,17 +56,23 @@ class KongAPI(Kong):
         if request_path is not None:
             data['request_path'] = request_path
 
-        return requests.post(url, data)
+        return getattr(requests, method)(url, data)
+        
+
+    def add(self, name, upstream_url, request_host=None, request_path=None, strip_request_path=False, preserve_host=False):
+        return self._add_or_update("post", name, upstream_url, request_host, request_path, strip_request_path, preserve_host)
+
+    def update(self, name, upstream_url, request_host=None, request_path=None, strip_request_path=False, preserve_host=False):
+        return self._add_or_update("patch", name, upstream_url, request_host, request_path, strip_request_path, preserve_host)
 
     def upsert(self, name, upstream_url, request_host=None, request_path=None, strip_request_path=False, preserve_host=False):
 
         # does it exist? 
         response = self.info(name)
         if response.status_code == 404:
-            self.add(name, upstream_url, request_host=None, request_path=None, strip_request_path=False, preserve_host=False)
+            return self.add(name, upstream_url, request_host, request_path, strip_request_path, preserve_host)
         else:
-            self.patch(name, upstream_url, request_host=None, request_path=None, strip_request_path=False, preserve_host=False)
-
+            return self.update(name, upstream_url, request_host, request_path, strip_request_path, preserve_host)
 
     def list(self):
         url = self.__url("/apis")
@@ -96,7 +104,7 @@ class KongConsumer(Kong):
         pass       
 
 ## module utility methods:
-def handle_present_state(module):
+def prepare_data(module):
 
     url = module.params['kong_admin_uri']
     data = {
@@ -104,7 +112,15 @@ def handle_present_state(module):
         "upstream_url": module.params['upstream_url'], 
         "request_host": module.params['request_host'],        
     }
-    return KongAPI(url).add(**data)    
+    return (url, data)
+
+def handle_present_state(module):
+    url, data = prepare_data(module)
+    return KongAPI(url).add(**data)  
+
+def handle_latest_state(module):
+    url, data = prepare_data(module)
+    return KongAPI(url).upsert(**data)    
 
 def handle_delete_state(module):
 
@@ -118,7 +134,7 @@ def get_module():
         name = dict(required=False, type='str'),
         upstream_url = dict(required=False, type='str'),
         request_host = dict(required=False, type='str'),    
-        state = dict(required=False, default="present", choices=['present', 'absent', 'list', 'info'], type='str'),    
+        state = dict(required=False, default="present", choices=['present', 'absent', 'latest', 'list', 'info'], type='str'),    
     )
     return AnsibleModule(argument_spec=args,supports_check_mode=False)
     
@@ -144,6 +160,15 @@ def main():
         has_changed = response.status_code in success_status 
         module.exit_json(changed=has_changed, meta=response.json()) 
 
+    if state == "latest":
+        success_status = [201]
+        unchanged_status = [409]
+
+        response = handle_latest_state(module)   
+
+        has_changed = response.status_code in success_status 
+        module.exit_json(changed=has_changed, meta=response.json()) 
+
     if state == "absent":
         success_status = [204]
         unchanged_status = [404]        
@@ -156,7 +181,6 @@ def main():
             module.exit_json(changed=False, meta = {"status": "DOES NOT EXIST"})
 
         module.exit_json(changed=False, meta = json.dumps(response.content))
-
 
     if state == "list":
         success_status = [200]
