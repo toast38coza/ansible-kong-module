@@ -91,17 +91,6 @@ class KongAPI(Kong):
         path = "/apis/{}" . format (id)
         url = self.__url(path)
         return requests.delete(url)
-        
-
-class KongPlugin(Kong):
-
-    def add(self, data):
-        pass 
-
-class KongConsumer(Kong):
-    
-    def add(self):
-        pass       
 
 ## module utility methods:
 def prepare_data(module):
@@ -193,12 +182,6 @@ def main():
             "text": response.content
         }
         module.exit_json(changed=False, meta=meta)
-
-    
-    
-    
-    
-
 
 
 from ansible.module_utils.basic import *

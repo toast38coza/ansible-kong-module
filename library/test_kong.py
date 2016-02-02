@@ -1,6 +1,6 @@
 import unittest, responses, json, mock
 from urlparse import parse_qsl, parse_qs
-from kong import Kong, KongAPI, \
+from kong_api import Kong, KongAPI, \
 	handle_delete_state, handle_latest_state, handle_present_state
 
 mock_kong_admin_url = "http://192.168.99.100:8001"
@@ -80,6 +80,7 @@ class KongAPITestCase(unittest.TestCase):
 	@responses.activate
 	def test_api_upsert_update(self):
 		"""A call to upsert with an existing API will create a valid PUT request"""
+		
 		expected_url = '{}/apis/mockbin' . format (mock_kong_admin_url)
 		responses.add(responses.GET, expected_url, status=200)
 
@@ -165,6 +166,12 @@ class KongAPITestCase(unittest.TestCase):
 			"Expect 204 DELETED response. Got: {}: {}" . format (response.status_code, response.content)
 
 		
+class KongPluginTestCase(unittest.TestCase):
+
+	def setUp(self):
+		self.api = KongPlugin(mock_kong_admin_url)
+
+
 
 
 	
