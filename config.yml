@@ -1,0 +1,34 @@
+- hosts: localhost
+  vars: 
+    - admin_base_url: "http://192.168.99.100:8001"
+    - api_base_url: "http://192.168.99.100:8000"
+  
+  tasks:
+    - name: Register APIs
+      kong:
+        kong_admin_uri: "{{admin_base_url}}"     
+        name: "{{item.name}}"
+        upstream_url: "{{item.upstream_url}}"
+        request_host: "{{item.request_host}}"       
+        state: present
+      with_items:
+        - name: "Mockbin"
+          upstream_url: "http://mockbin.com"
+          request_host: "mockbin.com"
+        - name: "Github"
+          upstream_url: "https://api.github.com"
+          request_host: "github.com"
+
+    - name: Delete mockbin 
+      kong:
+        kong_admin_uri: "{{admin_base_url}}"     
+        name: "Mockbin"  
+        state: absent   
+
+    - name: Output API 
+      kong:
+        kong_admin_uri: "{{admin_base_url}}"
+        state: list    
+      register: result
+
+    - debug: var=result   
