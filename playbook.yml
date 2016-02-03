@@ -4,35 +4,35 @@
     - api_base_url: "http://192.168.99.100:8000"
   
   tasks:
+    - name: Delete APIs 
+      kong_api:
+        kong_admin_uri: "{{admin_base_url}}"     
+        name: "{{item}}"  
+        state: absent   
+      with_items:
+        - mockbin
+        - Github
+
     - name: Register APIs
       kong_api:
         kong_admin_uri: "{{admin_base_url}}"     
         name: "{{item.name}}"
         upstream_url: "{{item.upstream_url}}"
-        request_host: "{{item.request_host}}"       
+        request_host: "{{item.request_host}}"   
+        request_path: "{{item.request_path}}"   
+        strip_request_path: "{{item.strip_request_path}}"       
         state: present
       with_items:
         - name: "mockbin"
           upstream_url: "http://mockbin.com"
           request_host: "mockbin.com"
-        - name: "Github"
-          upstream_url: "https://github.com"
-          request_host: "github.com"
-
-    - name: Update APIs
-      kong_api:
-        kong_admin_uri: "{{admin_base_url}}"     
-        name: "{{item.name}}"
-        upstream_url: "{{item.upstream_url}}"
-        request_host: "{{item.request_host}}"       
-        state: latest
-      with_items:
+          request_path: "/mockbin"
+          strip_request_path: yes
         - name: "Github"
           upstream_url: "https://api.github.com"
           request_host: "github.com"
-      register: result
-
-    - debug: var=result
+          request_path: "/github"
+          strip_request_path: yes
 
 #    - name: Delete mockbin 
 #      kong_api:

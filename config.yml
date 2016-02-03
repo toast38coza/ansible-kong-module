@@ -5,19 +5,20 @@
   
   tasks:
     
-    - name: Add request transformer to mockbin 
-      kong_plugin:
-        kong_admin_uri: "{{admin_base_url}}"
+    - name: Register APIs
+      kong_api:
+        kong_admin_uri: "{{admin_base_url}}"     
+        name: "{{item.name}}"
+        upstream_url: "{{item.upstream_url}}"
+        request_host: "{{item.request_host}}"       
         state: present
-        api_name: "mockbin"
-        plugin_name: "request-transformer"
-        config: 
-          "config.add.headers": "x-new-header:some_value, x-another-header:some_value"
-          "config.add.querystring": "new-param:some_value, another-param:some_value"
-          "config.add.form": "new-form-param:some_value, another-form-param:some_value"
-          "config.remove.headers": "x-toremove, x-another-one"
-          "config.remove.querystring": "param-toremove, param-another-one"
-          "config.remove.form": "formparam-toremove, formparam-another-one"
+        request_path: "{{item.request_path}}"
+      with_items:
+        - name: "mockbin"
+          upstream_url: "http://mockbin.com"
+          request_host: "mockbin.com"
+          request_path: "/mockbin"
+          strip_request_path: yes
+      register: response
 
-
-    - debug: var=result   
+    - debug: var=response

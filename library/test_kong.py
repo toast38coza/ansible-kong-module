@@ -1,124 +1,193 @@
-import unittest, responses, json, mock
+import unittest, responses, json, mock, requests
 from urlparse import parse_qsl, parse_qs
-from kong_api import Kong, KongAPI, \
-	handle_delete_state, handle_latest_state, handle_present_state
+from kong_api import KongAPI, ModuleHelper, main
+from ansible.module_utils.basic import AnsibleModule
 
 mock_kong_admin_url = "http://192.168.99.100:8001"
+
+class ModuleHelperTestCase(unittest.TestCase):
+
+	def setUp(self):
+		class MockModule: 
+			pass
+		fields = [
+            "name", 
+            "upstream_url", 
+            "request_host", 
+            "request_path", 
+            "strip_request_path", 
+            "preserve_host"
+        ]
+		self.helper = ModuleHelper(fields)
+		self.module = MockModule()
+		self.module.params = {
+			"kong_admin_uri": mock_kong_admin_url,
+            "name": "mockbin", 
+            "request_host": "mockbin.com", 
+            "request_path": "/mockbin", 
+            "strip_request_path": True, 
+            "preserve_host": False,
+            "upstream_url": "http://mockbin.com",
+			"state": "present"
+		}
+
+	def test_prepare_inputs(self):
+		
+		url, data, state = self.helper.prepare_inputs(self.module)
+
+		assert url == mock_kong_admin_url
+		assert state == "present"
+		for field in self.helper.fields:
+			value = data.get(field, None)
+			assert value is not None, \
+				"Expect field {} to be set. Actual value was {}" . format (field, value)
+
+
 
 class MainTestCase(unittest.TestCase):
 
 	def setUp(self):
-
 		class MockModule: 
 			pass
 
+		fields = [
+	        'name', 
+	        'upstream_url', 
+	        'request_host',
+	        'request_path',
+	        'strip_request_path',
+	        'preserve_host'
+	    ]
+
+		self.helper = ModuleHelper(fields)
 		self.module = MockModule()
 		self.module.params = {
 			"kong_admin_uri": "http://192.168.99.100:8001",
 			"name":"mockbin", 
 			"upstream_url":"http://mockbin.com", 
 			"request_host" : "mockbin.com"
-		}  
+		}
 
-	def test_handle_delete_state(self):
-		response = handle_delete_state(self.module)
+	@mock.patch.object(ModuleHelper, 'get_response')
+	@mock.patch.object(AnsibleModule, 'exit_json')
+	@mock.patch.object(KongAPI, 'add_or_update')
+	@mock.patch.object(ModuleHelper, 'get_module')
+	@mock.patch.object(ModuleHelper, 'prepare_inputs')
+	def test_main_add(self, mock_prepare_inputs, mock_module, mock_add, mock_exit_json, mock_get_response):
 
-	@mock.patch.object(KongAPI, "upsert")
-	def test_handle_latest_state(self, mock_upsert):
-		response = handle_latest_state(self.module)
+		mock_prepare_inputs.return_value = (mock_kong_admin_url, {}, "present")
+		mock_get_response.return_value = (True, {})
+		main()
 
-		assert mock_upsert.called
+		assert mock_add.called		
 
-	@mock.patch.object(KongAPI, "add")
-	def test_handle_latest_state(self, mock_add):
-		response = handle_latest_state(self.module)
+	@mock.patch.object(ModuleHelper, 'get_response')
+	@mock.patch.object(AnsibleModule, 'exit_json')
+	@mock.patch.object(KongAPI, 'delete_by_name')
+	@mock.patch.object(ModuleHelper, 'get_module')
+	@mock.patch.object(ModuleHelper, 'prepare_inputs')
+	def test_main_delete(self, mock_prepare_inputs, mock_module, mock_delete, mock_exit_json, mock_get_response):
 
-		assert mock_add.called
+		mock_prepare_inputs.return_value = (mock_kong_admin_url, {}, "absent")
+		mock_get_response.return_value = (True, {})
+		main()
 
-		
+		assert mock_delete.called	
 
-class KongTestCase(unittest.TestCase):
+	@mock.patch.object(ModuleHelper, 'get_response')
+	@mock.patch.object(AnsibleModule, 'exit_json')
+	@mock.patch.object(KongAPI, 'list')
+	@mock.patch.object(ModuleHelper, 'get_module')
+	@mock.patch.object(ModuleHelper, 'prepare_inputs')
+	def test_main_add(self, mock_prepare_inputs, mock_module, mock_list, mock_exit_json, mock_get_response):
 
-	def setUp(self):
-		self.kong = Kong(mock_kong_admin_url)
+		mock_prepare_inputs.return_value = (mock_kong_admin_url, {}, "list")
+		mock_get_response.return_value = (True, {})
+		main()
 
-	def test_kong_call(self):
-		pass
+		assert mock_list.called			
+
+
 
 class KongAPITestCase(unittest.TestCase):
 
 	def setUp(self):
 		self.api = KongAPI(mock_kong_admin_url)
 
+	def test__api_exists(self):
+		api_list = [
+			{"name": "foo"},
+			{"name": "bar"},
+		]
+		exists = self.api._api_exists("foo", api_list)
+		assert exists == True
+
+	def test__api_doesnt_exist(self):
+		api_list = [
+			{"name": "foo"},
+			{"name": "bar"},
+		]
+		exists = self.api._api_exists("baz", api_list)
+		assert exists == False
+
 	@responses.activate
-	def test_api_add(self):
+	def test_api_add_new(self):
 		
+		api_list = {'data': [
+			{"name": "foo"},
+			{"name": "bar"},
+		]}
+		expected_url = '{}/apis' . format (mock_kong_admin_url)
+		responses.add(responses.GET, expected_url, status=201, body=json.dumps(api_list))
+
 		expected_url = '{}/apis/' . format (mock_kong_admin_url)
 		responses.add(responses.POST, expected_url, status=201)
 
 		request_data = {
 			"name":"mockbin", 
 			"upstream_url":"http://mockbin.com", 
-			"request_host" : "mockbin.com"
+			"request_host" : "mockbin.com",
+			"request_path" : "/mockbin" 
 		}
-		response = self.api.add(**request_data)
-
+		response = self.api.add_or_update(**request_data)
 
 		assert response.status_code == 201
 
-		data = parse_qs(responses.calls[0].request.body)
-		expected_keys = ['name', 'upstream_url', 'request_host', 'strip_request_path', 'preserve_host']
+		data = parse_qs(responses.calls[1].request.body)
+		expected_keys = ['name', 'upstream_url', 'request_host', 'request_path', 'strip_request_path', 'preserve_host']
 		for key in expected_keys:
 			assert data.get(key, None) is not None, \
 				"Expect all required data to have been sent. What was actually sent: {}" . format (data)
 
-		num_calls = len(responses.calls)		
-		assert num_calls == 1, \
-		  "Expect exactly 1 call. got: {}" . format (num_calls)
-
-	
 	@responses.activate
-	def test_api_upsert_update(self):
-		"""A call to upsert with an existing API will create a valid PUT request"""
+	def test_api_add_update(self):
 		
-		expected_url = '{}/apis/mockbin' . format (mock_kong_admin_url)
-		responses.add(responses.GET, expected_url, status=200)
+		api_list = {'data': [
+			{"name": "foo"},
+			{"name": "bar"},
+			{"name": "mockbin"}
+		]}
+		expected_url = '{}/apis' . format (mock_kong_admin_url)
+		responses.add(responses.GET, expected_url, status=201, body=json.dumps(api_list))
 
 		expected_url = '{}/apis/mockbin' . format (mock_kong_admin_url)
-		responses.add(responses.PATCH, expected_url, status=200)
+		responses.add(responses.PATCH, expected_url, status=201)
 
 		request_data = {
 			"name":"mockbin", 
 			"upstream_url":"http://mockbin.com", 
-			"request_host" : "mockbin.com"
+			"request_host" : "mockbin.com",
+			"request_path" : "/mockbin" 
 		}
-		response = self.api.upsert(**request_data)
-		assert response.status_code == 200
-		assert response.url =='{}/apis/mockbin' . format (mock_kong_admin_url), \
-			"Expect call specific endpoint for API"
+		response = self.api.add_or_update(**request_data)
+
+		assert response.status_code == 201
 
 		data = parse_qs(responses.calls[1].request.body)
-		expected_keys = ['name', 'upstream_url', 'request_host', 'strip_request_path', 'preserve_host']
+		expected_keys = ['name', 'upstream_url', 'request_host', 'request_path', 'strip_request_path', 'preserve_host']
 		for key in expected_keys:
 			assert data.get(key, None) is not None, \
 				"Expect all required data to have been sent. What was actually sent: {}" . format (data)
-
-
-	@mock.patch.object(KongAPI, "add")
-	@responses.activate
-	def test_api_upsert_add(self, mock_add):
-		expected_url = '{}/apis/mockbin' . format (mock_kong_admin_url)
-		responses.add(responses.GET, expected_url, status=404)
-
-		request_data = {
-			"name":"mockbin", 
-			"upstream_url":"http://mockbin.com", 
-			"request_host" : "mockbin.com"
-		}
-		self.api.upsert(**request_data)
-
-		assert mock_add.called
-
 
 	@responses.activate
 	def test_list_apis(self):
@@ -166,30 +235,23 @@ class KongAPITestCase(unittest.TestCase):
 			"Expect 204 DELETED response. Got: {}: {}" . format (response.status_code, response.content)
 
 		
-class KongPluginTestCase(unittest.TestCase):
-
-	def setUp(self):
-		self.api = KongPlugin(mock_kong_admin_url)
-
-
-
-
-	
 class IntegrationTests(unittest.TestCase):
 
 	def setUp(self):
 		self.api = KongAPI("http://192.168.99.100:8001")
 
-	@unittest.skip("integration test")
+	@unittest.skip("integration")
 	def test_add_api(self):
 
 		request_data = {
 			"name":"mockbin", 
 			"upstream_url":"http://mockbin.com", 
-			"request_host" : "mockbin.com"
+			"request_host" : "mockbin.com",
+			"request_path" : "/mockbin",
+			"strip_request_path": True
 		}
-		response = self.api.add(**request_data)
-
+		response = self.api.add_or_update(**request_data)
+		import pdb;pdb.set_trace()
 		assert response.status_code in [201, 409], \
 			"Expect status 201 Created. Got: {}: {}" . format (response.status_code, response.content)
 
