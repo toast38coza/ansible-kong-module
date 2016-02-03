@@ -58,14 +58,39 @@
           "config.remove.headers": "x-toremove, x-another-one"
           "config.remove.querystring": "param-toremove, param-another-one"
           "config.remove.form": "formparam-toremove, formparam-another-one"
-        state: present          
+        state: present  
+      register: result  
+
+    - name: Show plugins
+      kong_plugin:
+        kong_admin_uri: "{{admin_base_url}}"
+        api_name: "mockbin"
+        state: list
+      register: plugins 
+
+    - debug: var=plugins
 
     - name: Delete request transformer from mockbin
       kong_plugin:
         kong_admin_uri: "{{admin_base_url}}"        
         api_name: "mockbin"        
-        plugin_id: "acd35016-e2a8-4356-c38a-2195936e525b"
+        plugin_id: "{{plugins.meta.data.0.id}}"
         state: absent
 
-
     - debug: var=result   
+
+    - name: Add some consumers
+      kong_consumer:
+        kong_admin_uri: "{{admin_base_url}}"
+        username: "{{item}}"
+        state: present
+      with_items:
+        - bill
+        - bob
+        - barry
+
+    - name: Remove bill
+      kong_consumer:
+        kong_admin_uri: "{{admin_base_url}}"
+        username: bill
+        state: absent

@@ -1,0 +1,7 @@
+requests
+responses
+mock
+nose
+sniffer
+ansible
+coverage
