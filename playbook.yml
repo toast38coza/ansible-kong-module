@@ -1,96 +1,59 @@
 - hosts: localhost
   vars: 
-    - admin_base_url: "http://192.168.99.100:8001"
-    - api_base_url: "http://192.168.99.100:8000"
-  
+    - kong_admin_base_url: "http://192.168.99.100:8001"
+    - kong_base_url: "http://192.168.99.100:8000"
+    - kong_consumers:
+      - username: Jason
+        key: 123
   tasks:
-    - name: Delete APIs 
-      kong_api:
-        kong_admin_uri: "{{admin_base_url}}"     
-        name: "{{item}}"  
-        state: absent   
-      with_items:
-        - mockbin
-        - Github
-
+   
     - name: Register APIs
       kong_api:
-        kong_admin_uri: "{{admin_base_url}}"     
-        name: "{{item.name}}"
-        upstream_url: "{{item.upstream_url}}"
-        request_host: "{{item.request_host}}"   
-        request_path: "{{item.request_path}}"   
-        strip_request_path: "{{item.strip_request_path}}"       
+        kong_admin_uri: "{{kong_admin_base_url}}"
+        name: "mockbin"
+        upstream_url: "http://mockbin.com"
+        request_host: "mockbin.com"   
+        request_path: "/mockbin"   
+        strip_request_path: yes
         state: present
-      with_items:
-        - name: "mockbin"
-          upstream_url: "http://mockbin.com"
-          request_host: "mockbin.com"
-          request_path: "/mockbin"
-          strip_request_path: yes
-        - name: "Github"
-          upstream_url: "https://api.github.com"
-          request_host: "github.com"
-          request_path: "/github"
-          strip_request_path: yes
 
-#    - name: Delete mockbin 
-#      kong_api:
-#        kong_admin_uri: "{{admin_base_url}}"     
-#        name: "Mockbin"  
-#        state: absent   
-
-    - name: Output API 
-      kong_api:
-        kong_admin_uri: "{{admin_base_url}}"
-        state: list    
-      register: result
-
-    - name: Add request transformer to mockbin 
+    - name: Verify API was added
+      uri: 
+        url: "{{kong_admin_base_url}}/apis/mockbin"
+        status_code: 200
+    
+    - name: Add key authentication 
       kong_plugin:
-        kong_admin_uri: "{{admin_base_url}}"
+        kong_admin_uri: "{{kong_admin_base_url}}"
         api_name: "mockbin"
-        plugin_name: "request-transformer"
-        config: 
-          "config.add.headers": "x-new-header:some_value, x-another-header:some_value"
-          "config.add.querystring": "new-param:some_value, another-param:some_value"
-          "config.add.form": "new-form-param:some_value, another-form-param:some_value"
-          "config.remove.headers": "x-toremove, x-another-one"
-          "config.remove.querystring": "param-toremove, param-another-one"
-          "config.remove.form": "formparam-toremove, formparam-another-one"
+        plugin_name: "key-auth"        
         state: present  
-      register: result  
+      
+    - name: Verify key auth was added
+      uri: 
+        url: "{{kong_base_url}}/mockbin"
+        status_code: 401 
 
-    - name: Show plugins
-      kong_plugin:
-        kong_admin_uri: "{{admin_base_url}}"
-        api_name: "mockbin"
-        state: list
-      register: plugins 
-
-    - debug: var=plugins
-
-    - name: Delete request transformer from mockbin
-      kong_plugin:
-        kong_admin_uri: "{{admin_base_url}}"        
-        api_name: "mockbin"        
-        plugin_id: "{{plugins.meta.data.0.id}}"
-        state: absent
-
-    - debug: var=result   
-
-    - name: Add some consumers
+    - name: Add a consumer
       kong_consumer:
-        kong_admin_uri: "{{admin_base_url}}"
-        username: "{{item}}"
+        kong_admin_uri: "{{kong_admin_base_url}}"
+        username: "{{item.username}}"
         state: present
-      with_items:
-        - bill
-        - bob
-        - barry
+      with_items: "{{kong_consumers}}"
 
-    - name: Remove bill
+    - name: Configure consumer
       kong_consumer:
-        kong_admin_uri: "{{admin_base_url}}"
-        username: bill
-        state: absent
+        kong_admin_uri: "{{kong_admin_base_url}}"
+        username: "{{item.username}}"
+        api_name: key-auth
+        data: 
+          key: "{{item.key}}"
+        state: configure
+      with_items: "{{kong_consumers}}" 
+
+    - name: Verify consumers can access API 
+      uri: 
+        url: "{{kong_base_url}}/mockbin"
+        HEADER_apikey: "{{item.key}}"
+        status_code: 200
+      with_items: "{{kong_consumers}}"
