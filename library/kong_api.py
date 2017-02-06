@@ -28,8 +28,12 @@ import json, requests, os
 
 class KongAPI:
 
-    def __init__(self, base_url):
+    def __init__(self, base_url, auth_username, auth_password):
         self.base_url = base_url
+        if auth_username is not None and auth_password is not None:
+            self.auth = (auth_username, auth_password)
+        else:
+            self.auth = None
 
     def __url(self, path):
         return "{}{}" . format (self.base_url, path)
@@ -62,16 +66,16 @@ class KongAPI:
         if request_path is not None:
             data['request_path'] = request_path
 
-        return getattr(requests, method)(url, data)
+        return getattr(requests, method)(url, data, auth=self.auth)
         
 
     def list(self):
         url = self.__url("/apis")
-        return requests.get(url)
+        return requests.get(url, auth=self.auth)
 
     def info(self, id):
         url = self.__url("/apis/{}" . format (id))
-        return requests.get(url)
+        return requests.get(url, auth=self.auth)
 
     def delete_by_name(self, name):
         info = self.info(name)
@@ -81,7 +85,7 @@ class KongAPI:
     def delete(self, id):
         path = "/apis/{}" . format (id)
         url = self.__url(path)
-        return requests.delete(url)
+        return requests.delete(url, auth=self.auth)
 
 class ModuleHelper:
 
@@ -92,6 +96,8 @@ class ModuleHelper:
 
         args = dict(
             kong_admin_uri = dict(required=False, type='str'),
+            kong_admin_username = dict(required=False, type='str'),
+            kong_admin_password = dict(required=False, type='str'),
             name = dict(required=False, type='str'),
             upstream_url = dict(required=False, type='str'),
             request_host = dict(required=False, type='str'),    
@@ -104,6 +110,8 @@ class ModuleHelper:
 
     def prepare_inputs(self, module):
         url = module.params['kong_admin_uri']
+        auth_user = module.params['kong_admin_username']
+        auth_password = module.params['kong_admin_password']
         state = module.params['state']    
         data = {}
 
@@ -112,7 +120,7 @@ class ModuleHelper:
             if value is not None:
                 data[field] = value
 
-        return (url, data, state)
+        return (url, auth_user, auth_password, data, state)
 
     def get_response(self, response, state):
 
@@ -145,19 +153,23 @@ def main():
 
     global module # might not need this
     module = helper.get_module()  
-    base_url, data, state = helper.prepare_inputs(module)
+    base_url, auth_user, auth_password, data, state = helper.prepare_inputs(module)
 
-    api = KongAPI(base_url)
+    api = KongAPI(base_url, auth_user, auth_password)
     if state == "present":
         response = api.add_or_update(**data)
     if state == "absent":
         response = api.delete_by_name(data.get("name"))
     if state == "list":
         response = api.list()
-    
-    has_changed, meta = helper.get_response(response, state)
-    module.exit_json(changed=has_changed, meta=meta)
 
+    if response.status_code == 401:
+        module.fail_json(msg="Please specify kong_admin_username and kong_admin_password", meta=response.json())
+    elif response.status_code == 403:
+        module.fail_json(msg="Please check kong_admin_username and kong_admin_password", meta=response.json())
+    else:
+        has_changed, meta = helper.get_response(response, state)
+        module.exit_json(changed=has_changed, meta=meta)
 
 from ansible.module_utils.basic import *
 from ansible.module_utils.urls import *
