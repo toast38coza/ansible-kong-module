@@ -28,7 +28,7 @@ import json, requests, os
 
 class KongAPI:
 
-    def __init__(self, base_url, auth_username, auth_password):
+    def __init__(self, base_url, auth_username=None, auth_password=None):
         self.base_url = base_url
         if auth_username is not None and auth_password is not None:
             self.auth = (auth_username, auth_password)
@@ -120,7 +120,7 @@ class ModuleHelper:
             if value is not None:
                 data[field] = value
 
-        return (url, auth_user, auth_password, data, state)
+        return (url, data, state, auth_user, auth_password)
 
     def get_response(self, response, state):
 
@@ -153,7 +153,7 @@ def main():
 
     global module # might not need this
     module = helper.get_module()  
-    base_url, auth_user, auth_password, data, state = helper.prepare_inputs(module)
+    base_url, data, state, auth_user, auth_password = helper.prepare_inputs(module)
 
     api = KongAPI(base_url, auth_user, auth_password)
     if state == "present":
