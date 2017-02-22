@@ -74,7 +74,7 @@ class ModuleHelperTestCase(unittest.TestCase):
 	@mock.patch.object(ModuleHelper, 'prepare_inputs')
 	def test_main_add(self, mock_prepare_inputs, mock_module, mock_add, mock_exit_json, mock_get_response):
 
-		mock_prepare_inputs.return_value = (mock_kong_admin_url, "1","joesoap", "present", None, None)
+		mock_prepare_inputs.return_value = (mock_kong_admin_url, "1","joesoap", "present", None, None, None, None)
 		mock_get_response.return_value = (True, requests.Response())
 		main()
 
@@ -87,7 +87,7 @@ class ModuleHelperTestCase(unittest.TestCase):
 	@mock.patch.object(ModuleHelper, 'prepare_inputs')
 	def test_main_delete(self, mock_prepare_inputs, mock_module, mock_delete, mock_exit_json, mock_get_response):
 
-		mock_prepare_inputs.return_value = (mock_kong_admin_url, "1","joesoap", "absent", None, None)
+		mock_prepare_inputs.return_value = (mock_kong_admin_url, "1","joesoap", "absent", None, None, None, None)
 		mock_get_response.return_value = (True, requests.Response())
 		main()
 
@@ -100,7 +100,7 @@ class ModuleHelperTestCase(unittest.TestCase):
 	@mock.patch.object(ModuleHelper, 'prepare_inputs')
 	def test_main_list(self, mock_prepare_inputs, mock_module, mock_list, mock_exit_json, mock_get_response):
 
-		mock_prepare_inputs.return_value = (mock_kong_admin_url, "1","joesoap", "list", None, None)
+		mock_prepare_inputs.return_value = (mock_kong_admin_url, "1","joesoap", "list", None, None, None, None)
 		mock_get_response.return_value = (True, requests.Response())
 		main()
 
@@ -113,7 +113,7 @@ class ModuleHelperTestCase(unittest.TestCase):
 	@mock.patch.object(ModuleHelper, 'prepare_inputs')
 	def test_main_list(self, mock_prepare_inputs, mock_module, mock_configure_for_plugin, mock_exit_json, mock_get_response):
 
-		mock_prepare_inputs.return_value = (mock_kong_admin_url, "1","joesoap", "configure", "auth-key", {"key": "123"})
+		mock_prepare_inputs.return_value = (mock_kong_admin_url, "1","joesoap", "configure", "auth-key", {"key": "123"}, None, None)
 		mock_get_response.return_value = (True, requests.Response())
 		main()
 
@@ -130,10 +130,12 @@ class ModuleHelperTestCase(unittest.TestCase):
 		mock_module = MockModule()
 		mock_module.params = {
 			'kong_admin_uri': mock_kong_admin_url,
+			'kong_admin_username': None,
+			'kong_admin_password': None,
 			'state': 'present',
 			'username': 'joesoap',
 		}
-		url, username, id, state, api_name, data = self.helper.prepare_inputs(mock_module)
+		url, username, id, state, api_name, data, auth_username, auth_password = self.helper.prepare_inputs(mock_module)
 
 		assert url == mock_kong_admin_url
 		assert state == 'present'
