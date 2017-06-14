@@ -105,15 +105,15 @@ class MainTestCase(unittest.TestCase):
 	        	"foo": "bar"
 	        }
 		}
-	
+
 	@mock.patch.object(ModuleHelper, 'get_response')
 	@mock.patch.object(AnsibleModule, 'exit_json')
 	@mock.patch.object(KongPlugin, 'add_or_update')
 	@mock.patch.object(ModuleHelper, 'get_module')
 	@mock.patch.object(ModuleHelper, 'prepare_inputs')
 	def test_main_present(self, mock_prepare_inputs, mock_module, mock_add_or_update, mock_exit_json, mock_get_response):
-		
-		mock_prepare_inputs.return_value = ("","mockbin", {}, "present")
+
+		mock_prepare_inputs.return_value = ("","mockbin", {}, "present", None, None)
 		mock_get_response.return_value = (True, requests.Response())
 		main()
 
@@ -125,8 +125,8 @@ class MainTestCase(unittest.TestCase):
 	@mock.patch.object(ModuleHelper, 'get_module')
 	@mock.patch.object(ModuleHelper, 'prepare_inputs')
 	def test_main_delete(self, mock_prepare_inputs, mock_module, mock_delete, mock_exit_json, mock_get_response):
-		
-		mock_prepare_inputs.return_value = ("","mockbin", {}, "absent")
+
+		mock_prepare_inputs.return_value = ("","mockbin", {}, "absent", None, None)
 		mock_get_response.return_value = (True, requests.Response())
 		main()
 
@@ -138,8 +138,8 @@ class MainTestCase(unittest.TestCase):
 	@mock.patch.object(ModuleHelper, 'get_module')
 	@mock.patch.object(ModuleHelper, 'prepare_inputs')
 	def test_main_list(self, mock_prepare_inputs, mock_module, mock_list, mock_exit_json, mock_get_response):
-		
-		mock_prepare_inputs.return_value = ("","mockbin", {}, "list")
+
+		mock_prepare_inputs.return_value = ("","mockbin", {}, "list", None, None)
 		mock_get_response.return_value = (True, requests.Response())
 		main()
 

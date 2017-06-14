@@ -22,6 +22,8 @@ class ModuleHelperTestCase(unittest.TestCase):
 		self.module = MockModule()
 		self.module.params = {
 			"kong_admin_uri": mock_kong_admin_url,
+			"kong_admin_username": None,
+			"kong_admin_password": None,
             "name": "mockbin", 
             "request_host": "mockbin.com", 
             "request_path": "/mockbin", 
@@ -33,7 +35,7 @@ class ModuleHelperTestCase(unittest.TestCase):
 
 	def test_prepare_inputs(self):
 		
-		url, data, state = self.helper.prepare_inputs(self.module)
+		url, data, state, auth_user, auth_password = self.helper.prepare_inputs(self.module)
 
 		assert url == mock_kong_admin_url
 		assert state == "present"
@@ -75,7 +77,7 @@ class MainTestCase(unittest.TestCase):
 	@mock.patch.object(ModuleHelper, 'prepare_inputs')
 	def test_main_add(self, mock_prepare_inputs, mock_module, mock_add, mock_exit_json, mock_get_response):
 
-		mock_prepare_inputs.return_value = (mock_kong_admin_url, {}, "present")
+		mock_prepare_inputs.return_value = (mock_kong_admin_url, {}, "present", None, None)
 		mock_get_response.return_value = (True, {})
 		main()
 
@@ -88,7 +90,7 @@ class MainTestCase(unittest.TestCase):
 	@mock.patch.object(ModuleHelper, 'prepare_inputs')
 	def test_main_delete(self, mock_prepare_inputs, mock_module, mock_delete, mock_exit_json, mock_get_response):
 
-		mock_prepare_inputs.return_value = (mock_kong_admin_url, {}, "absent")
+		mock_prepare_inputs.return_value = (mock_kong_admin_url, {}, "absent", None, None)
 		mock_get_response.return_value = (True, {})
 		main()
 
@@ -101,7 +103,7 @@ class MainTestCase(unittest.TestCase):
 	@mock.patch.object(ModuleHelper, 'prepare_inputs')
 	def test_main_add(self, mock_prepare_inputs, mock_module, mock_list, mock_exit_json, mock_get_response):
 
-		mock_prepare_inputs.return_value = (mock_kong_admin_url, {}, "list")
+		mock_prepare_inputs.return_value = (mock_kong_admin_url, {}, "list", None, None)
 		mock_get_response.return_value = (True, {})
 		main()
 
