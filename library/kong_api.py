@@ -1,4 +1,7 @@
-#!/usr/bin/python
+from ansible.module_utils.kong import Kong
+from ansible.module_utils.helpers import version_compare
+from ansible.module_utils.basic import *
+
 
 DOCUMENTATION = '''
 ---
@@ -9,170 +12,129 @@ short_description: Configure a Kong API Gateway
 
 EXAMPLES = '''
 - name: Register a site
-  kong: 
+  kong:
     kong_admin_uri: http://127.0.0.1:8001/apis/
     name: "Mockbin"
     taget_url: "http://mockbin.com"
-    request_host: "mockbin.com"    
+    hosts: "mockbin.com"
     state: present
 
 - name: Delete a site
-  kong: 
+  kong:
     kong_admin_uri: http://127.0.0.1:8001/apis/
     name: "Mockbin"
     state: absent
 
 '''
 
-import json, requests, os
+MIN_VERSION = '0.11.0'
 
-class KongAPI:
 
-    def __init__(self, base_url, auth_username=None, auth_password=None):
-        self.base_url = base_url
-        if auth_username is not None and auth_password is not None:
-            self.auth = (auth_username, auth_password)
-        else:
-            self.auth = None
-
-    def __url(self, path):
-        return "{}{}" . format (self.base_url, path)
-
-    def _api_exists(self, name, api_list):
-        for api in api_list:
-            if name == api.get("name", None):
-                return True 
-        return False
-
-    def add_or_update(self, name, upstream_url, request_host=None, request_path=None, strip_request_path=False, preserve_host=False):
-
-        method = "post"        
-        url = self.__url("/apis/")
-        api_list = self.list().json().get("data", [])
-        api_exists = self._api_exists(name, api_list)
-
-        if api_exists:
-            method = "patch"
-            url = "{}{}" . format (url, name)
-
-        data = {
-            "name": name,
-            "upstream_url": upstream_url,
-            "strip_request_path": strip_request_path,
-            "preserve_host": preserve_host
-        }
-        if request_host is not None:
-            data['request_host'] = request_host
-        if request_path is not None:
-            data['request_path'] = request_path
-
-        return getattr(requests, method)(url, data, auth=self.auth)
-        
-
-    def list(self):
-        url = self.__url("/apis")
-        return requests.get(url, auth=self.auth)
-
-    def info(self, id):
-        url = self.__url("/apis/{}" . format (id))
-        return requests.get(url, auth=self.auth)
-
-    def delete_by_name(self, name):
-        info = self.info(name)
-        id = info.json().get("id")
-        return self.delete(id)
-
-    def delete(self, id):
-        path = "/apis/{}" . format (id)
-        url = self.__url(path)
-        return requests.delete(url, auth=self.auth)
-
-class ModuleHelper:
+class DataBuilder:
 
     def __init__(self, fields):
         self.fields = fields
-    
-    def get_module(self):
 
-        args = dict(
-            kong_admin_uri = dict(required=False, type='str'),
-            kong_admin_username = dict(required=False, type='str'),
-            kong_admin_password = dict(required=False, type='str'),
-            name = dict(required=False, type='str'),
-            upstream_url = dict(required=False, type='str'),
-            request_host = dict(required=False, type='str'),    
-            request_path = dict(required=False, type='str'),  
-            strip_request_path = dict(required=False, default=False, type='bool'), 
-            preserve_host = dict(required=False, default=False, type='bool'),         
-            state = dict(required=False, default="present", choices=['present', 'absent', 'latest', 'list', 'info'], type='str'),    
-        )
-        return AnsibleModule(argument_spec=args,supports_check_mode=False)
+    def params_fields_lookup(self, module):
 
-    def prepare_inputs(self, module):
-        url = module.params['kong_admin_uri']
-        auth_user = module.params['kong_admin_username']
-        auth_password = module.params['kong_admin_password']
-        state = module.params['state']    
-        data = {}
-
-        for field in self.fields:
-            value = module.params.get(field, None)
-            if value is not None:
-                data[field] = value
-
-        return (url, data, state, auth_user, auth_password)
+        # Look up all keys mentioned in 'fields' in the module parameters, get their values
+        return {x: module.params[x] for x in self.fields if module.params.get(x, None) is not None}
 
     def get_response(self, response, state):
 
-        if state == "present":
-            meta = response.json()
-            has_changed = response.status_code in [201, 200]
-            
-        if state == "absent":
-            meta = {}
-            has_changed = response.status_code == 204
-
-        if state == "list":
-            meta = response.json()
-            has_changed = False
+        meta = {}
+        has_changed = False
 
         return (has_changed, meta)
 
 def main():
 
-    fields = [
-        'name', 
-        'upstream_url', 
-        'request_host',
-        'request_path',
-        'strip_request_path',
-        'preserve_host'
+    module = AnsibleModule(
+        argument_spec = dict(
+            kong_admin_uri = dict(required=True, type='str'),
+            kong_admin_username = dict(required=False, type='str'),
+            kong_admin_password = dict(required=False, type='str'),
+            name = dict(required=True, type='str'),
+            upstream_url = dict(required=False, type='str'),
+            hosts = dict(required=False, type='list'),
+            uris = dict(required=False, type='list'),
+            methods = dict(required=False, type='list'),
+            strip_uri = dict(required=False, default=False, type='bool'),
+            preserve_host = dict(required=False, default=False, type='bool'),
+            state = dict(required=False, default="present", choices=['present', 'absent'], type='str'),
+        ),
+        required_if=[
+            ('state', 'present', ['upstream_url'])
+        ],
+        supports_check_mode=True
+    )
+
+    result = {}
+
+    # Emulates 'required_one_of' argument spec, as it cannot be made conditional
+    if module.params['state'] == 'present' and \
+        module.params['hosts'] is None and \
+        module.params['uris'] is None and \
+        module.params['methods'] is None:
+        module.fail_json(msg="At least one of hosts, uris or methods is required when state is 'present'")
+
+    # Kong 0.11.x
+    api_fields = [
+        'name',
+        'upstream_url',
+        'hosts',
+        'uris',
+        'methods',
+        'strip_uri',
+        'preserve_host',
+        'retries',
+        'upstream_connect_timeout',
+        'upstream_read_timeout',
+        'upstream_send_timeout',
+        'https_only',
+        'http_if_terminated'
     ]
 
-    helper = ModuleHelper(fields)
+    # Initialize helper class for building the requests
+    b = DataBuilder(api_fields)
+    data = b.params_fields_lookup(module)
 
-    global module # might not need this
-    module = helper.get_module()  
-    base_url, data, state, auth_user, auth_password = helper.prepare_inputs(module)
+    # Admin endpoint & auth
+    url = module.params['kong_admin_uri']
+    auth_user = module.params['kong_admin_username']
+    auth_pass = module.params['kong_admin_password']
 
-    api = KongAPI(base_url, auth_user, auth_password)
+    # Target state
+    state = module.params['state']
+
+    # Create Kong client instance
+    k = Kong(url, auth_user=auth_user, auth_pass=auth_pass)
+
+    kong_version = k.version
+    if not version_compare(kong_version, MIN_VERSION):
+        module.warn('Module supports Kong {} and up (found {})'.format(MIN_VERSION, kong_version))
+
     if state == "present":
-        response = api.add_or_update(**data)
+        r = k.api_apply(**data)
+
+        result.update(
+            dict(
+                changed=None,
+                response=r
+            )
+        )
+
+    # Ensure the API is deleted
     if state == "absent":
-        response = api.delete_by_name(data.get("name"))
-    if state == "list":
-        response = api.list()
+        r = k.api_delete(data.get("name"))
 
-    if response.status_code == 401:
-        module.fail_json(msg="Please specify kong_admin_username and kong_admin_password", meta=response.json())
-    elif response.status_code == 403:
-        module.fail_json(msg="Please check kong_admin_username and kong_admin_password", meta=response.json())
-    else:
-        has_changed, meta = helper.get_response(response, state)
-        module.exit_json(changed=has_changed, meta=meta)
+        result.update(
+            dict(
+                changed=r
+            )
+        )
 
-from ansible.module_utils.basic import *
-from ansible.module_utils.urls import *
+    module.exit_json(**result)
 
 if __name__ == '__main__':
     main()
