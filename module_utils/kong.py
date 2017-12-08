@@ -1,5 +1,3 @@
-from distutils.version import StrictVersion
-
 import requests
 
 
@@ -95,25 +93,18 @@ class Kong(object):
 
         return r.json().get('version', None)
 
-
     # --- Split off into API subclass
-
-    def _api_exists(self, name):
-        """
-        Query the Kong API to check if a certain API exists.
-        """
-
-        try:
-            self.api_get(name)
-        except requests.HTTPError:
-            return False
-        return True
 
     def api_list(self):
         return self._get(Kong.apis, None)
 
     def api_get(self, name):
-        return self._get(Kong.apis, name)
+        try:
+            r = self._get(Kong.apis, name)
+        except requests.HTTPError:
+            return None
+        else:
+            return r
 
     def api_apply(self, name, upstream_url, hosts=None, uris=None, methods=None, strip_uri=False,
                   preserve_host=False):
@@ -136,16 +127,28 @@ class Kong(object):
         }
 
         if hosts is not None:
+            # Kong API expects comma-separated values
+            if isinstance(hosts, list):
+                hosts = ','.join(hosts)
+
             data['hosts'] = hosts
 
         if uris is not None:
+            # Kong API expects comma-separated values
+            if isinstance(uris, list):
+                uris = ','.join(uris)
+
             data['uris'] = uris
 
         if methods is not None:
+            # Kong API expects comma-separated values
+            if isinstance(methods, list):
+                methods = ','.join(methods)
+
             data['methods'] = methods
 
         # check if the API is already defined in Kong
-        if self._api_exists(name):
+        if self.api_get(name):
             # patch the resource at /apis/{name}
             r = self._patch(Kong.apis, name, data)
         else:
@@ -162,7 +165,7 @@ class Kong(object):
         :return: True on a successful delete, False if it didn't exist
         :rtype: bool
         """
-        if self._api_exists(name):
+        if self.api_get(name):
             return self._delete(Kong.apis, name)
 
         return False
