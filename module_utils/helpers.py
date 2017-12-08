@@ -15,3 +15,18 @@ def version_compare(api_version, supported_version):
     """
 
     return StrictVersion(api_version) >= StrictVersion(supported_version)
+
+
+def render_list(inlist):
+    """
+    Convert a list to a string with newlines.
+    :param inlist: The input list
+    :type inlist: list
+    :return: the list converted to a string
+    """
+
+    # Return empty string to avoid returning unnecessary newlines
+    if not inlist:
+        return ''
+
+    return '\n{}\n\n'.format('\n'.join([str(x) for x in inlist]))
