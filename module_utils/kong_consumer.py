@@ -15,13 +15,13 @@ class KongConsumer(Kong):
         """
         return self._get('consumers')
 
-    def consumer_query(self, id=None, custom_id=None, username=None):
+    def consumer_query(self, consumer_id=None, custom_id=None, username=None):
         """
         Query Kong for a consumer matching the given properties.
         Raises requests.HTTPError and ValueError.
 
-        :param id: 'id' field (UUID)
-        :type id: str
+        :param consumer_id: 'id' field (UUID)
+        :type consumer_id: str
         :param custom_id: 'custom_id' field
         :type custom_id: str
         :param username: 'username' field
@@ -30,17 +30,17 @@ class KongConsumer(Kong):
         :rtype: dict
         """
 
-        if id is custom_id is username is None:
+        if consumer_id is custom_id is username is None:
             raise ValueError("Need at least one of 'id', 'custom_id' or 'username'")
 
         params = {}
 
-        if id is not None:
+        if consumer_id is not None:
             # Validate the given UUID, can raise ValueError
             # Querying for an invalid UUID will return a 400
-            uuid.UUID(id)
+            uuid.UUID(consumer_id)
 
-            params['id'] = id
+            params['id'] = consumer_id
 
         if custom_id is not None:
             params['custom_id'] = custom_id
