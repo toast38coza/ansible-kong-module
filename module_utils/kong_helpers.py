@@ -1,7 +1,6 @@
 from distutils.version import StrictVersion
 
 
-
 def params_fields_lookup(amod, fields):
     """
     Look up all keys mentioned in 'fields' in the module parameters and return their values.

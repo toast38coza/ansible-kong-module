@@ -1,5 +1,5 @@
 from ansible.module_utils.kong_api import KongAPI
-from ansible.module_utils.helpers import *
+from ansible.module_utils.kong_helpers import *
 from ansible.module_utils.basic import AnsibleModule
 
 from ansible.module_utils.dotdiff import dotdiff
