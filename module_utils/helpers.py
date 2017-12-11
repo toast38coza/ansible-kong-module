@@ -30,3 +30,43 @@ def render_list(inlist):
         return ''
 
     return '\n{}\n\n'.format('\n'.join([str(x) for x in inlist]))
+
+
+def kong_status_check(kong, amod):
+    """
+    Failure wrapper around the Kong status check. Calls fail_json on the Ansible module
+    :param kong: an initialized, configured Kong API object
+    :type kong: Kong
+    :param amod: the Ansible module object
+    :type amod: AnsibleModule
+    :return: True or fail_json call on Ansible module
+    :rtype: bool
+    """
+    try:
+        if not kong.healthy:
+            amod.fail_json(msg='Kong database unreachable according to status endpoint')
+    except Exception as e:
+        amod.fail_json(msg='Unable to perform Kong status call: {}'.format(e))
+
+    return True
+
+def kong_version_check(kong, amod, version):
+    """
+    Failure wrapper around the Kong version check. Calls warn() on the
+    Ansible module if the remote endpoint doesn't meet the module's minimum version.
+    :param kong: an initialized, configured Kong API object
+    :type kong: Kong
+    :param version: the minimum version supported by the Ansible module
+    :type version: str
+    :param amod: the Ansible module object
+    :type amod: AnsibleModule
+    :return: remote endpoint meets minimum version
+    :rtype: bool
+    """
+    kong_version = kong.version
+
+    if not version_compare(kong_version, version):
+        amod.warn('Module supports Kong {} and up (found {})'.format(version, kong_version))
+        return False
+
+    return True

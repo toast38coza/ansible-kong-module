@@ -107,9 +107,11 @@ def main():
     # Create Kong client instance
     k = Kong(url, auth_user=auth_user, auth_pass=auth_pass)
 
-    kong_version = k.version
-    if not version_compare(kong_version, MIN_VERSION):
-        ansible_module.warn('Module supports Kong {} and up (found {})'.format(MIN_VERSION, kong_version))
+    # Contact Kong status endpoint
+    kong_status_check(k, ansible_module)
+
+    # Kong API version compatibility check
+    kong_version_check(k, ansible_module, MIN_VERSION)
 
     # Default return values
     changed = False

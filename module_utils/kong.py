@@ -93,6 +93,18 @@ class Kong(object):
 
         return r.json().get('version', None)
 
+    @property
+    def status(self):
+        url = self._url('status')
+        r = requests.get(url)
+        r.raise_for_status()
+
+        return r.json()
+
+    @property
+    def healthy(self):
+        return self.status.get('database', {}).get('reachable', False)
+
     # --- Split off into API subclass
 
     def api_list(self):
