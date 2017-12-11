@@ -1,114 +1,165 @@
-#!/usr/bin/python
+from ansible.module_utils.kong_consumer import KongConsumer
+from ansible.module_utils.helpers import *
+from ansible.module_utils.basic import AnsibleModule
 
-import requests
 
-class KongConsumer:
+DOCUMENTATION = '''
+---
+module: kong_consumer
+short_description: Configure a Kong Consumer object.
+'''
 
-    def __init__(self, base_url, auth_username=None, auth_password=None):
-        self.base_url = "{}/consumers" . format(base_url)
-        if auth_username is not None and auth_password is not None:
-            self.auth = (auth_username, auth_password)
-        else:
-            self.auth = None
+EXAMPLES = '''
+Setting custom_id's on Consumers is currently not supported;
+their usefulness is limited, and they require more lookups (round-trips)
+for actions that require either a username or the consumer's UUID.  
 
-    def list(self):
-    	return requests.get(self.base_url, auth=self.auth)
+- name: Configure a Consumer
+  kong_consumer:
+    kong_admin_uri: http://localhost:8001
+    username: apiconsumer
+    state: present
 
-    def add(self, username=None, custom_id=None):
-    	
-    	assert [username, custom_id] != [None, None], \
-    		'Please provide at least one of username or custom_id'
+- name: Configure a list of Consumers
+  kong_consumer:
+    kong_admin_uri: http://localhost:8001
+    username:
+      - one
+      - two
+      - three
+      - apiconsumers
+    state: present
 
-    	data = {}
-    	if username is not None:
-    		data['username'] = username
-    	if custom_id is not None:
-    		data['custom_id'] = custom_id
 
-    	return requests.post(self.base_url, data, auth=self.auth)
+- name: Delete a Consumer
+  kong_consumer:
+    kong_admin_uri: http://localhost:8001
+    username: apiconsumer
+    state: absent
+'''
 
-    def delete(self, id):
-    	url = "{}/{}" . format (self.base_url, id)
-    	return requests.delete(url, auth=self.auth)
+MIN_VERSION = '0.11.0'
 
-    def configure_for_plugin(self, username_or_id, api, data):
-        """This could possibly go in it's own plugin"""
-
-        url = "{}/{}/{}" . format (self.base_url, username_or_id, api)
-        return requests.post(url, data, auth=self.auth)
-
-class ModuleHelper:
-    
-    def get_module(self):
-
-        args = dict(
-            kong_admin_uri = dict(required=True, type='str'),
-            kong_admin_username = dict(required=False, type='str'),
-            kong_admin_password = dict(required=False, type='str'),
-            username = dict(required=False, type='str'),
-            custom_id = dict(required=False, type='str'),
-            state = dict(required=False, default="present", choices=['present', 'absent', 'list', 'configure'], type='str'),    
-            data = dict(required=False, type='dict'),
-            api_name = dict(required=False, type='str'),
-        )
-        return AnsibleModule(argument_spec=args,supports_check_mode=False)
-
-    def prepare_inputs(self, module):
-        url = module.params['kong_admin_uri']
-        auth_user = module.params['kong_admin_username']
-        auth_password = module.params['kong_admin_password']
-        state = module.params['state']    
-        username = module.params.get('username', None)
-        custom_id = module.params.get('custom_id', None)
-        data = module.params.get('data', None)
-        api_name = module.params.get('api_name', None)
-        
-        return (url, username, custom_id, state, api_name, data, auth_user, auth_password)
-
-    def get_response(self, response, state):
-
-        if state in ["present", "configure"]:
-            meta = json.dumps(response.content)
-            has_changed = response.status_code == 201
-            
-        if state == "absent":
-            meta = {}
-            has_changed = response.status_code == 204
-        if state == "list":
-            meta = response.json()
-            has_changed = False
-
-        return (has_changed, meta)
 
 def main():
 
-    helper = ModuleHelper()
+    ansible_module = AnsibleModule(
+        argument_spec=dict(
+            kong_admin_uri=dict(required=True, type='str'),
+            kong_admin_username=dict(required=False, type='str'),
+            kong_admin_password=dict(required=False, type='str', no_log=True),
+            username=dict(required=True, type='list'),
+            # custom_id=dict(required=False, type='str'),
+            state=dict(required=False, default="present", choices=['present', 'absent'], type='str'),
+        ),
+        supports_check_mode=True
+    )
 
-    global module # might not need this
-    module = helper.get_module()  
-    base_url, username, id, state, api_name, data, auth_user, auth_password = helper.prepare_inputs(module)
+    # We don't support custom_id, as its use is too limited in terms of querying
+    # the Kong API. The custom_id is not a primary key, cannot be used as an index
+    # in many operations, though it's marked as UNIQUE.
 
-    api = KongConsumer(base_url, auth_user, auth_password)
+    # Initialize output dictionary
+    result = {}
+
+    # Admin endpoint & auth
+    url = ansible_module.params['kong_admin_uri']
+    auth_user = ansible_module.params['kong_admin_username']
+    auth_pass = ansible_module.params['kong_admin_password']
+
+    # Extract other arguments
+    state = ansible_module.params['state']
+    users = ansible_module.params['username']
+
+    # Create KongAPI client instance
+    k = KongConsumer(url, auth_user=auth_user, auth_pass=auth_pass)
+
+    # Contact Kong status endpoint
+    kong_status_check(k, ansible_module)
+
+    # Kong API version compatibility check
+    kong_version_check(k, ansible_module, MIN_VERSION)
+
+    # Default return values
+    changed = False
+    resp = ''
+    diff = []
+
+    # Ensure the Consumer(s) are registered in Kong
     if state == "present":
-        response = api.add(username, id)
+
+        for username in users:
+
+            # Prepare data
+            data = {'username': username}
+
+            # Check if the Consumer exists
+            c = k.consumer_get(username)
+            if c is None:
+                # We're inserting a new Consumer, set changed
+                changed = True
+                result['state'] = 'created'
+
+                # Append diff entry
+                diff.append(dict(
+                    before_header='<undefined>', before='<undefined>\n',
+                    after_header=username, after=data
+                ))
+
+            # Only make changes when Ansible is not run in check mode
+            if not ansible_module.check_mode and changed:
+                try:
+
+                    # Apply changes to Kong
+                    resp = k.consumer_apply(**data)
+
+                except Exception as e:
+                    app_err = "Consumer rejected by Kong: '{}'. " \
+                              "Please check configuration of the Consumer you are trying to configure."
+                    ansible_module.fail_json(msg=app_err.format(e.message))
+
+    # Ensure the Consumer is deleted
     if state == "absent":
-        response = api.delete(username)
-    if state == "configure":
-        response = api.configure_for_plugin(username, api_name, data)
-    if state == "list":
-        response = api.list()
 
-    if response.status_code == 401:
-        module.fail_json(msg="Please specify kong_admin_username and kong_admin_password", meta=response.json())
-    elif response.status_code == 403:
-        module.fail_json(msg="Please check kong_admin_username and kong_admin_password", meta=response.json())
-    else:
-        has_changed, meta = helper.get_response(response, state)
-        module.exit_json(changed=has_changed, meta=meta)
+        for username in users:
+            # Check if the Consumer exists
+            orig = k.consumer_get(username)
 
+            # Predict a change if the Consumer is present
+            if orig:
+                changed = True
+                result['state'] = 'deleted'
 
-from ansible.module_utils.basic import *
-from ansible.module_utils.urls import *
+                diff.append(dict(
+                    before_header=username, before=orig,
+                    after_header='<deleted>', after='\n'
+                ))
+
+            # Only make changes when Ansible is not run in check mode
+            if not ansible_module.check_mode and orig:
+                # Issue delete call to the Kong API
+                try:
+                    resp = k.consumer_delete(username)
+                except Exception as e:
+                    ansible_module.fail_json(msg='Error deleting Consumer: {}'.format(e.message))
+
+    # Pass through the API response if non-empty
+    if resp:
+        result['response'] = resp
+
+    # Pass through the diff result
+    if diff:
+        result['diff'] = diff
+
+    # Prepare module output
+    result.update(
+        dict(
+            changed=changed,
+        )
+    )
+
+    ansible_module.exit_json(**result)
+
 
 if __name__ == '__main__':
     main()
