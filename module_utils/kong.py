@@ -3,9 +3,13 @@ import requests
 
 class Kong(object):
 
-    consumers = 'consumers'
-    apis = 'apis'
-    plugins = 'plugins'
+    # List of API resources the library supports
+    resources = [
+        'status',
+        'consumers',
+        'apis',
+        'plugins'
+    ]
 
     def __init__(self, base_url, auth_user=None, auth_pass=None):
 
@@ -76,7 +80,7 @@ class Kong(object):
         Assemble a URL based on the type of resource and the action.
         """
 
-        if resource not in [Kong.consumers, Kong.apis, Kong.plugins]:
+        if resource not in self.resources:
             raise ValueError("Resource '{}' is not consumers, apis or plugins".format(resource))
 
         # use different format string for a url with action segment
@@ -108,11 +112,11 @@ class Kong(object):
     # --- Split off into API subclass
 
     def api_list(self):
-        return self._get(Kong.apis, None)
+        return self._get('apis', None)
 
     def api_get(self, name):
         try:
-            r = self._get(Kong.apis, name)
+            r = self._get('apis', name)
         except requests.HTTPError:
             return None
         else:
@@ -162,10 +166,10 @@ class Kong(object):
         # check if the API is already defined in Kong
         if self.api_get(name):
             # patch the resource at /apis/{name}
-            r = self._patch(Kong.apis, name, data)
+            r = self._patch('apis', name, data)
         else:
             # post new API to the root of /apis
-            r = self._post(Kong.apis, None, data)
+            r = self._post('apis', None, data)
 
         return r
 
@@ -178,6 +182,6 @@ class Kong(object):
         :rtype: bool
         """
         if self.api_get(name):
-            return self._delete(Kong.apis, name)
+            return self._delete('apis', name)
 
         return False

@@ -65,6 +65,7 @@ def main():
         supports_check_mode=True
     )
 
+    # Initialize output dictionary
     result = {}
 
     # Emulates 'required_one_of' argument spec, as it cannot be made conditional
@@ -148,7 +149,9 @@ def main():
             try:
                 resp = k.api_apply(**data)
             except Exception as e:
-                ansible_module.fail_json(msg='Error applying API: {}'.format(e.message))
+                app_err = "API configuration rejected by Kong: '{}'. " \
+                          "Please check configuration of the API you are trying to configure."
+                ansible_module.fail_json(msg=app_err.format(e.message))
 
     # Ensure the API is deleted
     if state == "absent":
