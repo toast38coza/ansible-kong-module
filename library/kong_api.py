@@ -1,4 +1,4 @@
-from ansible.module_utils.kong import Kong
+from ansible.module_utils.kong_api import KongAPI
 from ansible.module_utils.helpers import *
 from ansible.module_utils.basic import AnsibleModule
 
@@ -93,8 +93,8 @@ def main():
     state = ansible_module.params['state']
     name = ansible_module.params['name']
 
-    # Create Kong client instance
-    k = Kong(url, auth_user=auth_user, auth_pass=auth_pass)
+    # Create KongAPI client instance
+    k = KongAPI(url, auth_user=auth_user, auth_pass=auth_pass)
 
     # Contact Kong status endpoint
     kong_status_check(k, ansible_module)
