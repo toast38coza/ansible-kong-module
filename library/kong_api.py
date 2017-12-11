@@ -7,26 +7,24 @@ from ansible.module_utils.dotdiff import dotdiff
 
 DOCUMENTATION = '''
 ---
-module: kong
-short_description: Configure a Kong API Gateway
-
+module: kong_api
+short_description: Configure a Kong API object.
 '''
 
 EXAMPLES = '''
-- name: Register a site
-  kong:
-    kong_admin_uri: http://127.0.0.1:8001/apis/
-    name: "Mockbin"
-    taget_url: "http://mockbin.com"
-    hosts: "mockbin.com"
+- name: Configure an API
+  kong_api:
+    kong_admin_uri: http://localhost:8001
+    name: Mockbin
+    upstream_url: http://mockbin.com
+    hosts: mockbin.com
     state: present
 
-- name: Delete a site
-  kong:
-    kong_admin_uri: http://127.0.0.1:8001/apis/
-    name: "Mockbin"
+- name: Delete an API
+  kong_api:
+    kong_admin_uri: http://localhost:8001
+    name: Mockbin
     state: absent
-
 '''
 
 MIN_VERSION = '0.11.0'
