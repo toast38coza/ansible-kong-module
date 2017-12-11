@@ -151,7 +151,7 @@ def main():
             result['state'] = 'deleted'
             result['diff'] = dict(
                 before_header=name, before=orig,
-                after_header='<deleted>', after='<deleted>\n'
+                after_header='<deleted>', after='\n'
             )
 
         # Only make changes when Ansible is not run in check mode
