@@ -1,6 +1,21 @@
 from distutils.version import StrictVersion
 
 
+
+def params_fields_lookup(amod, fields):
+    """
+    Look up all keys mentioned in 'fields' in the module parameters and return their values.
+    :param fields: a list of keys to extract from module params
+    :type fields: list
+    :param amod: the Ansible module to query
+    :type amod: AnsibleModule
+    :return: dictionary of queried values, default None
+    :rtype: dict
+    """
+
+    return {x: amod.params[x] for x in fields if amod.params.get(x, None) is not None}
+
+
 def version_compare(api_version, supported_version):
     """
     Simple implementation of an equal version compare.

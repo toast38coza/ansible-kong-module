@@ -32,17 +32,6 @@ EXAMPLES = '''
 MIN_VERSION = '0.11.0'
 
 
-class DataBuilder:
-
-    def __init__(self, fields):
-        self.fields = fields
-
-    def params_fields_lookup(self, amod):
-
-        # Look up all keys mentioned in 'fields' in the module parameters, get their values
-        return {x: amod.params[x] for x in self.fields if amod.params.get(x, None) is not None}
-
-
 def main():
 
     ansible_module = AnsibleModule(
@@ -92,9 +81,8 @@ def main():
         'http_if_terminated'
     ]
 
-    # Initialize helper class for building the requests
-    b = DataBuilder(api_fields)
-    data = b.params_fields_lookup(ansible_module)
+    # Extract api_fields from module parameters into separate dictionary
+    data = params_fields_lookup(ansible_module, api_fields)
 
     # Admin endpoint & auth
     url = ansible_module.params['kong_admin_uri']
