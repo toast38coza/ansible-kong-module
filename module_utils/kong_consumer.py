@@ -106,8 +106,8 @@ class KongConsumer(Kong):
         """
         Delete the Consumer if it exists.
 
-        :param name: name of the Consumer
-        :type name: str
+        :param idname: name of the Consumer
+        :type idname: str
         :return: True on a successful delete, False if it didn't exist
         :rtype: bool
         """
