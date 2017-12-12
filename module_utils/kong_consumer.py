@@ -115,3 +115,80 @@ class KongConsumer(Kong):
             return self._delete(['consumers', idname])
 
         return False
+
+    def consumer_plugin_query(self, consumer_idname, plugin_name, config=None):
+        """
+        Query a consumer plugin configuration based on the kwargs passed to the function.
+        The consumer plugin configuration is a free-form data structure, the query method
+        should be flexible.
+
+        :param consumer_idname: the ID or name of the Consumer to configure
+        :type consumer_idname: str
+        :param plugin_name: the ID or name of the Plugin to configure
+        :type plugin_name: str
+        :param kwargs: query parameters
+        :type kwargs: dict
+        :return: the data portion of the Kong response
+        :rtype: list
+        """
+
+        return self._get(['consumers', consumer_idname, plugin_name], params=config).get('data', [])
+
+    def consumer_plugin_apply(self, consumer_idname, plugin_name, config=None):
+        """
+        Apply a Consumer Plugin configuration against Kong.
+        Consumer Plugins configurations should not be modified, only deleted.
+
+        :param consumer_idname: the Consumer's ID or username
+        :type consumer_idname: str
+        :param plugin_name: the Plugin's name
+        :type plugin_name: str
+        :param kwargs: query data
+        :type kwargs: dict
+        :return: the created object
+        :rtype: dict
+        """
+
+        # Check if Consumer exists
+        if not self.consumer_get(consumer_idname):
+            raise ValueError('Consumer {} does not exist'.format(consumer_idname))
+
+        # Check if the Consumer Plugin configuration exists
+        cpq = self.consumer_plugin_query(consumer_idname, plugin_name, config)
+        if len(cpq) > 1:
+            raise ValueError('Consumer Plugin query returned multiple results')
+
+        if not cpq:
+            # No configuration found, create the Consumer Plugin configuration
+            return self._post(['consumers', consumer_idname, plugin_name], data=config)
+
+        return False
+
+    def consumer_plugin_delete(self, consumer_idname, plugin_name, config):
+        """
+        Delete a Consumer Plugin configuration.
+
+        :param consumer_idname: the Consumer's ID or username
+        :type consumer_idname: str
+        :param plugin_name: the Plugin's name
+        :type plugin_name: str
+        :param kwargs: query data
+        :type kwargs: dict
+        :return: the object has been successfully deleted
+        :rtype: bool
+        """
+
+        # Check if Consumer exists
+        if not self.consumer_get(consumer_idname):
+            raise ValueError('Consumer {} does not exist'.format(consumer_idname))
+
+        # Check if the Consumer Plugin configuration exists
+        cpq = self.consumer_plugin_query(consumer_idname, plugin_name, config)
+        if len(cpq) > 1:
+            raise ValueError('Consumer Plugin query returned multiple results')
+
+        if cpq:
+            # Found the Configuration, delete it
+            return self._delete(['consumers', consumer_idname, plugin_name, cpq[0].get('id')])
+
+        return False
