@@ -96,19 +96,24 @@ class Kong(object):
 
         return True
 
-    def _url(self, resource, action=None):
+    def _url(self, *args):
         """
-        Assemble a URL based on the type of resource and the action.
+        Assemble a URL based on the base_url with a URI joined by slashes.
         """
+
+        # Just return the base url if no arguments are given
+        if not args:
+            return self.base_url
+
+        resource = args[0]
 
         if resource not in self.resources:
-            raise ValueError("Resource '{}' is not consumers, apis or plugins".format(resource))
+            raise ValueError("Resource '{}' none of {}".format(resource, self.resources))
 
-        # use different format string for a url with action segment
-        if action is None:
-            return '{}/{}'.format(self.base_url, resource)
+        url = [self.base_url]
+        url.extend(args)
 
-        return '{}/{}/{}'.format(self.base_url, resource, action)
+        return '/'.join(url)
 
     @property
     def version(self):
