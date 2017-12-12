@@ -130,19 +130,32 @@ class KongPlugin(KongAPI, KongConsumer, Kong):
         if api_name is None:
             raise ValueError("'api_name' is required")
 
-        if config is None:
-            raise ValueError("'config' is required")
-
-        # Check if API exists first
-        if self.api_get(api_name) is None:
-            raise ValueError("API '{}' not found. Has it been created?".format(api_name))
-
         data = {
             'name': name,
         }
 
-        # Merge config entries into payload
-        data.update(self._prepare_config(config))
+        if config is not None:
+            if not isinstance(config, dict):
+                raise ValueError("'config' parameter is not a dict")
+
+            # Merge config entries into payload
+            data.update(self._prepare_config(config))
+
+        if consumer_name:
+            c = self.consumer_get(consumer_name)
+
+            if c is None:
+                raise ValueError('Consumer {} not found. Has it been created?'.format(consumer_name))
+
+            consumer_id = c.get('id')
+
+            uuid.UUID(consumer_id)
+
+            data['consumer_id'] = consumer_id
+
+        # Check if API exists first
+        if self.api_get(api_name) is None:
+            raise ValueError("API '{}' not found. Has it been created?".format(api_name))
 
         # Query the plugin with the given criteria
         p = self.plugin_query(name=name, consumer_name=consumer_name, api_name=api_name)
@@ -154,10 +167,6 @@ class KongPlugin(KongAPI, KongConsumer, Kong):
         if p:
             data['id'] = p[0].get('id')
             data['created_at'] = p[0].get('created_at')
-
-            consumer_id = p[0].get('consumer_id', None)
-            if consumer_id is not None:
-                data['consumer_id'] = consumer_id
 
         r = self._put(uri, data=data)
 
