@@ -61,7 +61,7 @@ class KongConsumer(Kong):
         :rtype: dict
         """
         try:
-            r = self._get('consumers', idname)
+            r = self._get(['consumers', idname])
         except requests.HTTPError:
             return None
         else:
@@ -112,6 +112,6 @@ class KongConsumer(Kong):
         :rtype: bool
         """
         if self.consumer_get(idname):
-            return self._delete('consumers', idname)
+            return self._delete(['consumers', idname])
 
         return False

@@ -25,11 +25,11 @@ class Kong(object):
         if ping and self.status:
             return
 
-    def _get(self, resource, action=None, params=None):
+    def _get(self, uri, params=None):
         """
         Execute GET request using the resource and action.
         """
-        url = self._url(resource, action)
+        url = self._url(uri)
 
         r = requests.get(url, params=params, auth=self.auth)
 
@@ -38,11 +38,11 @@ class Kong(object):
 
         return r.json()
 
-    def _post(self, resource, action=None, data=None):
+    def _post(self, uri, data=None):
         """
         Execute POST request using the resource, action and payload.
         """
-        url = self._url(resource, action)
+        url = self._url(uri)
 
         r = requests.post(url, data=data, auth=self.auth)
 
@@ -52,11 +52,11 @@ class Kong(object):
 
         return r.json()
 
-    def _patch(self, resource, action=None, data=None):
+    def _patch(self, uri, data=None):
         """
         Execute PATCH request using the resource, action and payload.
         """
-        url = self._url(resource, action)
+        url = self._url(uri)
 
         r = requests.patch(url, data=data, auth=self.auth)
 
@@ -65,11 +65,11 @@ class Kong(object):
 
         return r.json()
 
-    def _put(self, resource, action=None, data=None):
+    def _put(self, uri, data=None):
         """
         Execute PUT request using the resource, action and payload.
         """
-        url = self._url(resource, action)
+        url = self._url(uri)
 
         r = requests.put(url, data=data, auth=self.auth)
 
@@ -82,11 +82,11 @@ class Kong(object):
         # Report no change
         return False
 
-    def _delete(self, resource, action=None):
+    def _delete(self, uri):
         """
         Execute DELETE request using the resource and action.
         """
-        url = self._url(resource, action)
+        url = self._url(uri)
 
         r = requests.delete(url, auth=self.auth)
 
@@ -99,7 +99,15 @@ class Kong(object):
     def _url(self, *args):
         """
         Assemble a URL based on the base_url with a URI joined by slashes.
+        Trims None entries from args.
         """
+
+        # Tolerate the first argument being a list, step into it
+        if isinstance(args[0], (list, tuple)):
+            args = args[0]
+
+        # Remove None entries from args
+        args = [x for x in args if x is not None]
 
         # Just return the base url if no arguments are given
         if not args:

@@ -11,7 +11,7 @@ class KongAPI(Kong):
         :return: a dictionary of API info
         :rtype: dict
         """
-        return self._get('apis', None)
+        return self._get('apis')
 
     def api_get(self, name):
         """
@@ -23,7 +23,7 @@ class KongAPI(Kong):
         :rtype: dict
         """
         try:
-            r = self._get('apis', name)
+            r = self._get(['apis', name])
         except requests.HTTPError:
             return None
         else:
@@ -95,10 +95,10 @@ class KongAPI(Kong):
         # check if the API is already defined in Kong
         if self.api_get(name):
             # patch the resource at /apis/{name}
-            r = self._patch('apis', name, data)
+            r = self._patch(['apis', name], data=data)
         else:
             # post new API to the root of /apis
-            r = self._post('apis', None, data)
+            r = self._post('apis', data)
 
         return r
 
@@ -112,6 +112,6 @@ class KongAPI(Kong):
         :rtype: bool
         """
         if self.api_get(name):
-            return self._delete('apis', name)
+            return self._delete(['apis', name])
 
         return False
