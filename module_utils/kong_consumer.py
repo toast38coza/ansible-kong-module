@@ -126,8 +126,8 @@ class KongConsumer(Kong):
         :type consumer_idname: str
         :param plugin_name: the ID or name of the Plugin to configure
         :type plugin_name: str
-        :param kwargs: query parameters
-        :type kwargs: dict
+        :param config: Consumer Plugin configuration
+        :type config: dict
         :return: the data portion of the Kong response
         :rtype: list
         """
@@ -143,8 +143,8 @@ class KongConsumer(Kong):
         :type consumer_idname: str
         :param plugin_name: the Plugin's name
         :type plugin_name: str
-        :param kwargs: query data
-        :type kwargs: dict
+        :param config: Consumer Plugin configuration
+        :type config: dict
         :return: the created object
         :rtype: dict
         """
@@ -164,7 +164,7 @@ class KongConsumer(Kong):
 
         return False
 
-    def consumer_plugin_delete(self, consumer_idname, plugin_name, config):
+    def consumer_plugin_delete(self, consumer_idname, plugin_name, config=None):
         """
         Delete a Consumer Plugin configuration.
 
@@ -172,8 +172,8 @@ class KongConsumer(Kong):
         :type consumer_idname: str
         :param plugin_name: the Plugin's name
         :type plugin_name: str
-        :param kwargs: query data
-        :type kwargs: dict
+        :param config: Consumer Plugin configuration
+        :type config: dict
         :return: the object has been successfully deleted
         :rtype: bool
         """

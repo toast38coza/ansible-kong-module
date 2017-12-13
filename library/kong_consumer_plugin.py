@@ -120,7 +120,8 @@ def main():
             try:
                 resp = k.consumer_plugin_delete(consumer_idname=username, plugin_name=plugin, config=config)
             except Exception as e:
-                ansible_module.fail_json(msg='Error deleting Consumer Plugin.',
+                ansible_module.fail_json(
+                    msg='Error deleting Consumer Plugin.',
                     err=e.message)
 
     # Pass through the API response if non-empty
