@@ -1,7 +1,6 @@
+from ansible.module_utils.basic import AnsibleModule
 from ansible.module_utils.kong_consumer import KongConsumer
 from ansible.module_utils.kong_helpers import *
-from ansible.module_utils.basic import AnsibleModule
-
 
 DOCUMENTATION = '''
 ---
@@ -28,7 +27,6 @@ MIN_VERSION = '0.11.0'
 
 
 def main():
-
     ansible_module = AnsibleModule(
         argument_spec=dict(
             kong_admin_uri=dict(required=True, type='str'),
@@ -97,7 +95,7 @@ def main():
                 resp = k.consumer_plugin_apply(username, plugin, config=config)
 
             except Exception as e:
-                ansible_module.fail_json(msg='Consumer Plugin configuration rejected by Kong.', err=e.message)
+                ansible_module.fail_json(msg='Consumer Plugin configuration rejected by Kong.', err=str(e))
 
     # Ensure the Consumer is deleted
     if state == "absent" and cpq:
@@ -122,7 +120,7 @@ def main():
             except Exception as e:
                 ansible_module.fail_json(
                     msg='Error deleting Consumer Plugin.',
-                    err=e.message)
+                    err=str(e))
 
     # Pass through the API response if non-empty
     if resp:

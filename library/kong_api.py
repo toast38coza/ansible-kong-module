@@ -1,9 +1,7 @@
+from ansible.module_utils.basic import AnsibleModule
+from ansible.module_utils.dotdiff import dotdiff
 from ansible.module_utils.kong_api import KongAPI
 from ansible.module_utils.kong_helpers import *
-from ansible.module_utils.basic import AnsibleModule
-
-from ansible.module_utils.dotdiff import dotdiff
-
 
 DOCUMENTATION = '''
 ---
@@ -31,7 +29,6 @@ MIN_VERSION = '0.11.0'
 
 
 def main():
-
     ansible_module = AnsibleModule(
         argument_spec=dict(
             kong_admin_uri=dict(required=True, type='str'),
@@ -57,8 +54,8 @@ def main():
 
     # Emulates 'required_one_of' argument spec, as it cannot be made conditional
     if ansible_module.params['state'] == 'present' and \
-        ansible_module.params['hosts'] is None and \
-        ansible_module.params['uris'] is None and \
+            ansible_module.params['hosts'] is None and \
+            ansible_module.params['uris'] is None and \
             ansible_module.params['methods'] is None:
         ansible_module.fail_json(msg="At least one of hosts, uris or methods is required when state is 'present'")
 
@@ -137,7 +134,7 @@ def main():
             except Exception as e:
                 app_err = "API configuration rejected by Kong: '{}'. " \
                           "Please check configuration of the API you are trying to configure."
-                ansible_module.fail_json(msg=app_err.format(e.message))
+                ansible_module.fail_json(msg=app_err.format(e))
 
     # Ensure the API is deleted
     if state == "absent":
@@ -160,7 +157,7 @@ def main():
             try:
                 resp = k.api_delete(name)
             except Exception as e:
-                ansible_module.fail_json(msg='Error deleting API: {}'.format(e.message))
+                ansible_module.fail_json(msg='Error deleting API: {}'.format(e))
 
     # Pass through the API response if non-empty
     if resp:

@@ -1,7 +1,6 @@
+from ansible.module_utils.basic import AnsibleModule
 from ansible.module_utils.kong_consumer import KongConsumer
 from ansible.module_utils.kong_helpers import *
-from ansible.module_utils.basic import AnsibleModule
-
 
 DOCUMENTATION = '''
 ---
@@ -42,7 +41,6 @@ MIN_VERSION = '0.11.0'
 
 
 def main():
-
     ansible_module = AnsibleModule(
         argument_spec=dict(
             kong_admin_uri=dict(required=True, type='str'),
@@ -116,7 +114,7 @@ def main():
                 except Exception as e:
                     app_err = "Consumer rejected by Kong: '{}'. " \
                               "Please check configuration of the Consumer you are trying to configure."
-                    ansible_module.fail_json(msg=app_err.format(e.message))
+                    ansible_module.fail_json(msg=app_err.format(e))
 
     # Ensure the Consumer is deleted
     if state == "absent":
@@ -141,7 +139,7 @@ def main():
                 try:
                     resp = k.consumer_delete(username)
                 except Exception as e:
-                    ansible_module.fail_json(msg='Error deleting Consumer: {}'.format(e.message))
+                    ansible_module.fail_json(msg='Error deleting Consumer: {}'.format(e))
 
     # Pass through the API response if non-empty
     if resp:
