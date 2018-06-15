@@ -1,0 +1,171 @@
+##########################################################
+# To use this playbook it is necessary to install:       #
+# - Python                                               #
+# - Python "requests" module (sudo pip install requests) #
+##########################################################
+
+- hosts: localhost
+  vars: 
+    - kong_admin_base_url: "http://172.20.0.103:81"
+    - kong_base_url: "http://172.20.0.103:80"
+    - service_name: "myservice"
+  tasks:
+
+    - name: List existing services
+      kong_service:
+        kong_admin_uri: "{{kong_admin_base_url}}"
+        state: list
+      register: result
+    
+    - set_fact:
+        existing_services: "{{result.meta.data}}"
+
+    - name: Prompt
+      pause:
+        prompt: "WARNING: There are services already configured which WILL BE DELETED if you proceed, do you wish to continue (y/n) ?"
+      register: result
+      when: existing_services | length > 0
+    
+    - debug:
+        var: result.user_input
+      when: existing_services | length > 0
+
+    - name:
+      meta: end_play
+      when: (existing_services | length > 0) and not (result.user_input == "y" or result.user_input == "Y")
+
+    - name: List routes by service
+      kong_routes:
+        kong_admin_uri: "{{kong_admin_base_url}}"
+        serviceid: "{{item.id}}"
+        state: list
+      register: result
+      with_items:
+        - "{{existing_services}}"
+    
+    - name: Delete routes by service
+      kong_routes:
+        kong_admin_uri: "{{kong_admin_base_url}}"
+        serviceid: "{{item.id}}"
+        state: absent
+      with_items:
+        - "{{existing_services}}"
+    
+    - name: Delete existing services
+      kong_service:
+        kong_admin_uri: "{{kong_admin_base_url}}"
+        serviceid: "{{item.id}}"
+        state: absent
+      with_items:
+        - "{{existing_services}}"
+    
+    - debug:
+        var: result.meta
+
+    - name: List services (before)
+      kong_service:
+        kong_admin_uri: "{{kong_admin_base_url}}"
+        state: list
+      register: result
+    
+    - debug:
+        var: result.meta
+
+    - name: Register service
+      kong_service:
+        kong_admin_uri: "{{kong_admin_base_url}}"
+        name: "{{service_name}}"
+        state: present
+        url: "http://172.23.0.21/myservice"
+        retries: 5
+        connect_timeout: 60000
+        write_timeout: 60000
+        read_timeout: 60000
+      register: result
+
+    - set_fact:
+        serviceid: "{{result.meta.id}}"
+
+    - name: List services (middle)
+      kong_service:
+        kong_admin_uri: "{{kong_admin_base_url}}"
+        state: list
+      register: result
+    
+    - debug:
+        var: result.meta
+
+    - name: List routes (before)
+      kong_routes:
+        kong_admin_uri: "{{kong_admin_base_url}}"
+        state: list
+      register: result
+    
+    - debug:
+        var: result.meta
+
+    - name: Add route
+      kong_routes:
+        kong_admin_uri: "{{kong_admin_base_url}}"
+        serviceid: "{{serviceid}}"
+        state: present
+        protocols: ["https"]
+        methods: ["GET"]
+        hosts: ["example.com"]
+        paths: ['/my-path']
+      register: result
+
+    - set_fact:
+        routeid: "{{result.meta.id}}"
+
+    - name: Update route
+      kong_routes:
+        kong_admin_uri: "{{kong_admin_base_url}}"
+        serviceid: "{{serviceid}}"
+        routeid: "{{routeid}}"
+        state: present
+        protocols: ["https"]
+        methods: ["GET","POST"]
+        hosts: ["example.com"]
+        paths: ['/my-path']
+      register: result
+
+    - name: List routes (middle)
+      kong_routes:
+        kong_admin_uri: "{{kong_admin_base_url}}"
+        state: list
+      register: result
+    
+    - debug:
+        var: result.meta
+
+    - name: Delete route
+      kong_routes:
+        kong_admin_uri: "{{kong_admin_base_url}}"
+        routeid: "{{routeid}}"
+        state: absent
+
+    - name: List routes (after)
+      kong_routes:
+        kong_admin_uri: "{{kong_admin_base_url}}"
+        state: list
+      register: result
+    
+    - debug:
+        var: result.meta
+
+    - name: Delete service
+      kong_service:
+        kong_admin_uri: "{{kong_admin_base_url}}"
+        name: "{{service_name}}"
+        state: absent
+
+    - name: List services (after)
+      kong_service:
+        kong_admin_uri: "{{kong_admin_base_url}}"
+        state: list
+      register: result
+    
+    - debug:
+        var: result.meta
+
