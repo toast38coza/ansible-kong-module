@@ -1,7 +1,6 @@
-from ansible.module_utils.kong import Kong
-
 import requests
 import uuid
+from ansible.module_utils.kong import Kong
 
 
 class KongConsumer(Kong):
@@ -98,7 +97,7 @@ class KongConsumer(Kong):
 
         # Only apply if the consumer does not already exist
         if not self.consumer_get(idname):
-            return self._put('consumers', data=data)
+            return self._put(['consumers', idname], data=data)
 
         return False
 

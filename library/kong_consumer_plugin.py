@@ -23,7 +23,7 @@ on the resource. Since there can be an arbitrary amount of plugin
 configurations for a Consumer, the `config` section needs to be identical.
 '''
 
-MIN_VERSION = '0.11.0'
+MIN_VERSION = '0.14.0'
 
 
 def main():

@@ -25,7 +25,7 @@ EXAMPLES = '''
     state: absent
 '''
 
-MIN_VERSION = '0.11.0'
+MIN_VERSION = '0.14.0'
 
 
 def main():

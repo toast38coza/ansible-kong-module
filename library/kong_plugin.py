@@ -1,10 +1,9 @@
 import requests
-from ansible.module_utils.kong_plugin import KongPlugin
-from ansible.module_utils.kong_helpers import *
 from ansible.module_utils.basic import AnsibleModule
+from ansible.module_utils.kong_helpers import *
+from ansible.module_utils.kong_plugin import KongPlugin
 
 from ansible.module_utils.dotdiff import dotdiff
-
 
 DOCUMENTATION = '''
 ---
@@ -20,18 +19,17 @@ EXAMPLES = '''
     api_name: mockbin
 '''
 
-MIN_VERSION = '0.11.0'
+MIN_VERSION = '0.14.0'
 
 
 def main():
-
     ansible_module = AnsibleModule(
         argument_spec=dict(
             kong_admin_uri=dict(required=True, type='str'),
             kong_admin_username=dict(required=False, type='str'),
             kong_admin_password=dict(required=False, type='str', no_log=True),
             name=dict(required=True, type='str'),
-            api_name=dict(required=True, type='str'),
+            api_name=dict(required=False, type='str'),
             consumer_name=dict(required=False, type='str', default=False),
             config=dict(required=False, type='dict', default=dict()),
             state=dict(required=False, default="present", choices=['present', 'absent'], type='str'),

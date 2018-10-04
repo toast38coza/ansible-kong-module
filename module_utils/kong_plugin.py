@@ -1,9 +1,8 @@
+import uuid
 from ansible.module_utils.kong import Kong
 from ansible.module_utils.kong_api import KongAPI
 from ansible.module_utils.kong_consumer import KongConsumer
 from ansible.module_utils.six import iteritems
-
-import uuid
 
 
 class KongPlugin(KongAPI, KongConsumer, Kong):
@@ -125,10 +124,10 @@ class KongPlugin(KongAPI, KongConsumer, Kong):
         :rtype: bool
         """
 
-        uri = ['apis', api_name, 'plugins']
+        uri = ['plugins']
 
-        if api_name is None:
-            raise ValueError("'api_name' is required")
+        if api_name:
+            uri = ['apis', api_name, 'plugins']
 
         data = {
             'name': name,
