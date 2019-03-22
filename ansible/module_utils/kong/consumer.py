@@ -1,5 +1,6 @@
-import requests
 import uuid
+
+import requests
 from ansible.module_utils.kong import Kong
 
 
@@ -30,7 +31,8 @@ class KongConsumer(Kong):
         """
 
         if consumer_id is custom_id is username is None:
-            raise ValueError("Need at least one of 'id', 'custom_id' or 'username'")
+            raise ValueError(
+                "Need at least one of 'id', 'custom_id' or 'username'")
 
         params = {}
 
@@ -115,28 +117,28 @@ class KongConsumer(Kong):
 
         return False
 
-    def consumer_plugin_query(self, consumer_idname, plugin_name, config=None):
+    def credential_query(self, consumer_idname, auth_type, config=None):
         """
-        Query a consumer plugin configuration based on the kwargs passed to the function.
-        The consumer plugin configuration is a free-form data structure, the query method
+        Query a consumer auth configuration based on the kwargs passed to the function.
+        The consumer auth configuration is a free-form data structure, the query method
         should be flexible.
 
         :param consumer_idname: the ID or name of the Consumer to configure
         :type consumer_idname: str
-        :param plugin_name: the ID or name of the Plugin to configure
-        :type plugin_name: str
+        :param auth_type: the ID or name of the Plugin to configure
+        :type auth_type: str
         :param config: Consumer Plugin configuration
         :type config: dict
         :return: the data portion of the Kong response
         :rtype: list
         """
 
-        return self._get(['consumers', consumer_idname, plugin_name], params=config).get('data', [])
+        return self._get(['consumers', consumer_idname, auth_type], params=config).get('data', [])
 
-    def consumer_plugin_apply(self, consumer_idname, plugin_name, config=None):
+    def credential_apply(self, consumer_idname, auth_type, config=None):
         """
-        Apply a Consumer Plugin configuration against Kong.
-        Consumer Plugins configurations should not be modified, only deleted.
+        Apply a Consumer credential configuration against Kong.
+        Consumer credential configurations should not be modified, only deleted.
 
         :param consumer_idname: the Consumer's ID or username
         :type consumer_idname: str
@@ -150,26 +152,38 @@ class KongConsumer(Kong):
 
         # Check if Consumer exists
         if not self.consumer_get(consumer_idname):
-            raise ValueError('Consumer {} does not exist'.format(consumer_idname))
+            raise ValueError(
+                'Consumer {} does not exist'.format(consumer_idname))
 
-        # Check if the Consumer Plugin configuration exists
-        cpq = self.consumer_plugin_query(consumer_idname, plugin_name, config)
-        if len(cpq) > 1:
+        # Check if the Consumer credential configuration exists
+
+        # Workaround for idempotency of basic-auth credentials
+        if auth_type == 'basic-auth':
+            cq = self.credential_query(consumer_idname, auth_type, {
+                                       'username': config.get('username')})
+        else:
+            cq = self.credential_query(consumer_idname, auth_type, config)
+
+        if not cq:
+            # No credentials found, create the Consumer credential configuration
+            return self._post(['consumers', consumer_idname, auth_type], data=config)
+
+        if len(cq) > 1:
             raise ValueError('Consumer Plugin query returned multiple results')
 
-        if not cpq:
-            # No configuration found, create the Consumer Plugin configuration
-            return self._post(['consumers', consumer_idname, plugin_name], data=config)
+        if cq and auth_type == 'basic-auth':
+            credential_id = cq[0].get('id')
+            return self._patch(['consumers', consumer_idname, auth_type, credential_id], data=config)
 
         return False
 
-    def consumer_plugin_delete(self, consumer_idname, plugin_name, config=None):
+    def credential_delete(self, consumer_idname, auth_type, config=None):
         """
         Delete a Consumer Plugin configuration.
 
         :param consumer_idname: the Consumer's ID or username
         :type consumer_idname: str
-        :param plugin_name: the Plugin's name
+        :param auth_type: name of auth Plugin
         :type plugin_name: str
         :param config: Consumer Plugin configuration
         :type config: dict
@@ -179,15 +193,16 @@ class KongConsumer(Kong):
 
         # Check if Consumer exists
         if not self.consumer_get(consumer_idname):
-            raise ValueError('Consumer {} does not exist'.format(consumer_idname))
+            raise ValueError(
+                'Consumer {} does not exist'.format(consumer_idname))
 
         # Check if the Consumer Plugin configuration exists
-        cpq = self.consumer_plugin_query(consumer_idname, plugin_name, config)
+        cpq = self.credential_query(consumer_idname, auth_type, config)
         if len(cpq) > 1:
             raise ValueError('Consumer Plugin query returned multiple results')
 
         if cpq:
             # Found the Configuration, delete it
-            return self._delete(['consumers', consumer_idname, plugin_name, cpq[0].get('id')])
+            return self._delete(['consumers', consumer_idname, auth_type, cpq[0].get('id')])
 
         return False

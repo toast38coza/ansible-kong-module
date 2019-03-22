@@ -1,0 +1,7 @@
+{
+    "ANSIBLE_MODULE_ARGS": {
+        "kong_admin_uri": "http://localhost:8001",
+        "username": "ansibleuser",
+        "state": "present"
+    }
+}

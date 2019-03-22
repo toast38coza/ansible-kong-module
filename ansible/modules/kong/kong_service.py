@@ -1,21 +1,21 @@
 from ansible.module_utils.basic import AnsibleModule
 from ansible.module_utils.dotdiff import dotdiff
-from ansible.module_utils.kong_api import KongAPI
-from ansible.module_utils.kong_helpers import *
+from ansible.module_utils.kong.helpers import *
+from ansible.module_utils.kong.service import KongService
 
 DOCUMENTATION = '''
 ---
-module: kong_api
-short_description: Configure a Kong API object.
+module: kong_service
+short_description: Configure a Kong Service object.
 '''
 
 EXAMPLES = '''
-- name: Configure an API
-  kong_api:
+- name: Configure an Service
+  kong_service:
     kong_admin_uri: http://localhost:8001
     name: Mockbin
-    upstream_url: http://mockbin.com
-    hosts: mockbin.com
+    protocol: https
+    host: mockbin.com
     state: present
 
 - name: Delete an API
@@ -35,16 +35,20 @@ def main():
             kong_admin_username=dict(required=False, type='str'),
             kong_admin_password=dict(required=False, type='str', no_log=True),
             name=dict(required=True, type='str'),
-            upstream_url=dict(required=False, type='str'),
-            hosts=dict(required=False, type='list'),
-            uris=dict(required=False, type='list'),
-            methods=dict(required=False, type='list'),
-            strip_uri=dict(required=False, default=False, type='bool'),
-            preserve_host=dict(required=False, default=False, type='bool'),
-            state=dict(required=False, default="present", choices=['present', 'absent'], type='str'),
+            protocol=dict(required=False, default="http",
+                          choices=['http', 'https'], type='str'),
+            host=dict(required=True, type='str'),
+            port=dict(required=False, default=80, type='int'),
+            path=dict(required=False, type='str'),
+            retries=dict(required=False, default=5, type='int'),
+            connect_timeout=dict(required=False, default=60000, type='int'),
+            write_timeout=dict(required=False, default=60000, type='int'),
+            read_timeout=dict(required=False, default=60000, type='int'),
+            state=dict(required=False, default="present",
+                       choices=['present', 'absent'], type='str'),
         ),
         required_if=[
-            ('state', 'present', ['upstream_url'])
+            ('state', 'present', ['host', 'name'])
         ],
         supports_check_mode=True
     )
@@ -52,28 +56,17 @@ def main():
     # Initialize output dictionary
     result = {}
 
-    # Emulates 'required_one_of' argument spec, as it cannot be made conditional
-    if ansible_module.params['state'] == 'present' and \
-            ansible_module.params['hosts'] is None and \
-            ansible_module.params['uris'] is None and \
-            ansible_module.params['methods'] is None:
-        ansible_module.fail_json(msg="At least one of hosts, uris or methods is required when state is 'present'")
-
-    # Kong 0.11.x
+    # Kong 0.14.x
     api_fields = [
         'name',
-        'upstream_url',
-        'hosts',
-        'uris',
-        'methods',
-        'strip_uri',
-        'preserve_host',
+        'protocol',
+        'host',
+        'port',
+        'path',
         'retries',
-        'upstream_connect_timeout',
-        'upstream_read_timeout',
-        'upstream_send_timeout',
-        'https_only',
-        'http_if_terminated'
+        'connect_timeout',
+        'write_timeout',
+        'read_timeout'
     ]
 
     # Extract api_fields from module parameters into separate dictionary
@@ -88,8 +81,8 @@ def main():
     state = ansible_module.params['state']
     name = ansible_module.params['name']
 
-    # Create KongAPI client instance
-    k = KongAPI(url, auth_user=auth_user, auth_pass=auth_pass)
+    # Create KongService client instance
+    k = KongService(url, auth_user=auth_user, auth_pass=auth_pass)
 
     # Contact Kong status endpoint
     kong_status_check(k, ansible_module)
@@ -101,25 +94,25 @@ def main():
     changed = False
     resp = ''
 
-    # Ensure the API is registered in Kong
+    # Ensure the service is registered in Kong
     if state == "present":
 
-        # Check if the API exists
-        orig = k.api_get(name)
+        # Check if the service exists
+        orig = k.service_get(name)
         if orig is not None:
 
             # Diff the remote API object against the target data if it already exists
-            apidiff = dotdiff(orig, data)
+            servicediff = dotdiff(orig, data)
 
             # Set changed flag if there's a diff
-            if apidiff:
+            if servicediff:
                 # Log modified state and diff result
                 changed = True
                 result['state'] = 'modified'
-                result['diff'] = [dict(prepared=render_list(apidiff))]
+                result['diff'] = [dict(prepared=render_list(servicediff))]
 
         else:
-            # We're inserting a new API, set changed
+            # We're inserting a new service, set changed
             changed = True
             result['state'] = 'created'
             result['diff'] = dict(
@@ -130,19 +123,19 @@ def main():
         # Only make changes when Ansible is not run in check mode
         if not ansible_module.check_mode and changed:
             try:
-                resp = k.api_apply(**data)
+                resp = k.service_apply(**data)
             except Exception as e:
-                app_err = "API configuration rejected by Kong: '{}'. " \
-                          "Please check configuration of the API you are trying to configure."
+                app_err = "Service configuration rejected by Kong: '{}'. " \
+                          "Please check configuration of the service you are trying to configure."
                 ansible_module.fail_json(msg=app_err.format(e))
 
-    # Ensure the API is deleted
+    # Ensure the service is deleted
     if state == "absent":
 
-        # Check if the API exists
-        orig = k.api_get(name)
+        # Check if the service exists
+        orig = k.service_get(name)
 
-        # Predict a change if the API exists
+        # Predict a change if the service exists
         if orig:
             changed = True
             result['state'] = 'deleted'
@@ -153,11 +146,12 @@ def main():
 
         # Only make changes when Ansible is not run in check mode
         if not ansible_module.check_mode and orig:
-            # Issue delete call to the Kong API
+            # Issue delete call to the Kong service
             try:
-                resp = k.api_delete(name)
+                resp = k.service_delete(name)
             except Exception as e:
-                ansible_module.fail_json(msg='Error deleting API: {}'.format(e))
+                ansible_module.fail_json(
+                    msg='Error deleting service: {}'.format(e))
 
     # Pass through the API response if non-empty
     if resp:

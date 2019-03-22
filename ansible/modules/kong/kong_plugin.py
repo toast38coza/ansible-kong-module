@@ -1,9 +1,8 @@
 import requests
 from ansible.module_utils.basic import AnsibleModule
-from ansible.module_utils.kong_helpers import *
-from ansible.module_utils.kong_plugin import KongPlugin
-
 from ansible.module_utils.dotdiff import dotdiff
+from ansible.module_utils.kong.helpers import *
+from ansible.module_utils.kong.plugin import KongPlugin
 
 DOCUMENTATION = '''
 ---
@@ -16,7 +15,7 @@ EXAMPLES = '''
   kong_plugin:
     kong_admin_uri: http://localhost:8001
     name: key-auth
-    api_name: mockbin
+    service: mockbin
 '''
 
 MIN_VERSION = '0.14.0'
@@ -29,10 +28,12 @@ def main():
             kong_admin_username=dict(required=False, type='str'),
             kong_admin_password=dict(required=False, type='str', no_log=True),
             name=dict(required=True, type='str'),
-            api_name=dict(required=False, type='str'),
-            consumer_name=dict(required=False, type='str', default=False),
+            service=dict(required=False, type='str'),
+            route=dict(required=False, type='dict'),
+            consumer=dict(required=False, type='str'),
             config=dict(required=False, type='dict', default=dict()),
-            state=dict(required=False, default="present", choices=['present', 'absent'], type='str'),
+            state=dict(required=False, default="present",
+                       choices=['present', 'absent'], type='str'),
         ),
         supports_check_mode=True
     )
@@ -48,13 +49,14 @@ def main():
     # Extract arguments
     state = ansible_module.params['state']
     name = ansible_module.params['name']
-    api_name = ansible_module.params['api_name']
-    consumer_name = ansible_module.params['consumer_name']
+    service = ansible_module.params['service']
+    route = ansible_module.params['route']
+    consumer = ansible_module.params['consumer']
     config = ansible_module.params['config']
 
     # Convert consumer_name to bool if bool conversion evals to False
-    if consumer_name == 'False':
-        consumer_name = False
+    # if consumer_name == 'False':
+    # consumer_name = False
 
     # Create KongAPI client instance
     k = KongPlugin(url, auth_user=auth_user, auth_pass=auth_pass)
@@ -70,14 +72,15 @@ def main():
     resp = ''
 
     # Check if the Plugin is already present
-    pq = k.plugin_query(name, api_name=api_name, consumer_name=consumer_name)
+    pq = k.plugin_query(name=name, service_name=service, route_attrs=route,
+                        consumer_name=consumer)
 
     # ansible_module.fail_json(msg=pq)
 
     if len(pq) > 1:
         ansible_module.fail_json(
-            msg='Got multiple results for Plugin query name: {}, api_name: {}, consumer_name: {}'.
-                format(name, api_name, consumer_name))
+            msg='Got multiple results for Plugin query name: {}, service: {}, route: {}, consumer: {}'.
+            format(name, service, route, consumer))
 
     # Ensure the Plugin is installed on Kong
     if state == "present":
@@ -103,8 +106,9 @@ def main():
                 before_header='<undefined>', before='<undefined>\n',
                 after_header=name, after={
                     'name': name,
-                    'consumer_name': consumer_name,
-                    'api_name': api_name,
+                    'service': service,
+                    'route': route,
+                    'consumer': consumer,
                     'state': 'created',
                     'config': config
                 }
@@ -113,10 +117,11 @@ def main():
         # Only make changes when Ansible is not run in check mode
         if not ansible_module.check_mode and changed:
             try:
-                resp = k.plugin_apply(name=name, config=config, api_name=api_name, consumer_name=consumer_name)
+                resp = k.plugin_apply(name=name, config=config, service_name=service,
+                                      route_attrs=route, consumer_name=consumer)
             except requests.HTTPError as e:
                 ansible_module.fail_json(msg='Plugin configuration rejected by Kong.', name=name, config=config,
-                                         api_name=api_name, consumer_name=consumer_name, response=e.response._content)
+                                         service=service, route=route, consumer=consumer, response=e.response._content)
 
     # Delete the Plugin if it exists
     if state == "absent" and pq:
@@ -136,10 +141,12 @@ def main():
         if not ansible_module.check_mode and orig:
             # Issue delete call to the Kong API
             try:
-                resp = k.plugin_delete(name, api_name=api_name, consumer_name=consumer_name)
+                resp = k.plugin_delete(name, service_name=service, route_attrs=route,
+                                       consumer_name=consumer)
             except requests.HTTPError as e:
-                app_err = "Error deleting Plugin."
-                ansible_module.fail_json(msg=app_err, response=e.response._content)
+                err_msg = "Error deleting Plugin."
+                ansible_module.fail_json(
+                    msg=err_msg, response=e.response._content)
 
     # Pass through the API response if non-empty
     if resp:

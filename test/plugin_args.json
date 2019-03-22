@@ -1,0 +1,11 @@
+{
+    "ANSIBLE_MODULE_ARGS": {
+        "kong_admin_uri": "http://localhost:8001",
+        "name": "basic-auth",
+        "service": "httpbin",
+        "config": {
+            "hide_credentials": "true"
+        },
+        "state": "present"
+    }
+}
