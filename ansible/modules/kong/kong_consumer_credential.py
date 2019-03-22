@@ -33,9 +33,11 @@ def main():
             kong_admin_username=dict(required=False, type='str'),
             kong_admin_password=dict(required=False, type='str', no_log=True),
             username=dict(required=True, type='str'),
-            type=dict(required=True, choices=['acl', 'basic-auth', 'hmac-auth', 'key-auth', 'jwt', 'oauth2'], type='str'),
+            type=dict(required=True, choices=[
+                      'acl', 'basic-auth', 'hmac-auth', 'key-auth', 'jwt', 'oauth2'], type='str'),
             config=dict(required=False, type='dict', default=dict()),
-            state=dict(required=False, default="present", choices=['present', 'absent'], type='str'),
+            state=dict(required=False, default="present",
+                       choices=['present', 'absent'], type='str'),
         ),
         supports_check_mode=True
     )
@@ -72,7 +74,7 @@ def main():
 
     if auth_type == 'basic-auth':
         cq = k.credential_query(username, auth_type,
-                                config={'username':config.get('username')})
+                                config={'username': config.get('username')})
     else:
         cq = k.credential_query(username, auth_type, config=config)
 
@@ -99,10 +101,12 @@ def main():
             if not ansible_module.check_mode and changed:
                 try:
                     # Apply changes to Kong
-                    resp = k.credential_apply(username, auth_type, config=config)
+                    resp = k.credential_apply(
+                        username, auth_type, config=config)
 
                 except Exception as e:
-                    ansible_module.fail_json(msg='Consumer Plugin configuration rejected by Kong.', err=str(e))
+                    ansible_module.fail_json(
+                        msg='Consumer Plugin configuration rejected by Kong.', err=str(e))
 
         if cq and auth_type == 'basic-auth':
 
@@ -110,10 +114,12 @@ def main():
             if not ansible_module.check_mode:
                 try:
                     # Apply changes to Kong
-                    resp = k.credential_apply(username, auth_type, config=config)
+                    resp = k.credential_apply(
+                        username, auth_type, config=config)
 
                 except Exception as e:
-                    ansible_module.fail_json(msg='Consumer Plugin configuration rejected by Kong.', err=str(e))
+                    ansible_module.fail_json(
+                        msg='Consumer Plugin configuration rejected by Kong.', err=str(e))
 
                 orig = cq[0]
 
@@ -141,7 +147,8 @@ def main():
         if not ansible_module.check_mode and orig:
             # Issue delete call
             try:
-                resp = k.credential_delete(consumer_idname=username, auth_type=auth_type, config=config)
+                resp = k.credential_delete(
+                    consumer_idname=username, auth_type=auth_type, config=config)
             except Exception as e:
                 ansible_module.fail_json(
                     msg='Error deleting Consumer credential.',

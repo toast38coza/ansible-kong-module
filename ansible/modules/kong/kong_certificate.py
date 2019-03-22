@@ -37,10 +37,11 @@ def main():
             sni=dict(required=True, type='str'),
             cert=dict(required=False, type='str'),
             key=dict(required=False, type='str', no_log=True),
-            state=dict(required=False, default="present", choices=['present', 'absent'], type='str'),
+            state=dict(required=False, default="present",
+                       choices=['present', 'absent'], type='str'),
         ),
         required_if=[
-            ('state', 'present', ['sni','cert','key'])
+            ('state', 'present', ['sni', 'cert', 'key'])
         ],
         supports_check_mode=True
     )
@@ -60,9 +61,9 @@ def main():
     key = ansible_module.params['key']
 
     data = {
-      'snis': [sni],
-      'cert': cert.strip(),
-      'key': key.strip()
+        'snis': [sni],
+        'cert': cert.strip(),
+        'key': key.strip()
     }
 
     # Create KongCertificate client instance
@@ -134,7 +135,8 @@ def main():
             try:
                 resp = k.certificate_delete(name)
             except Exception as e:
-                ansible_module.fail_json(msg='Error deleting certificate: {}'.format(e))
+                ansible_module.fail_json(
+                    msg='Error deleting certificate: {}'.format(e))
 
     # Pass through the API response if non-empty
     if resp:

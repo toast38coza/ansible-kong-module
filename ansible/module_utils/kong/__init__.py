@@ -41,7 +41,7 @@ class Kong(object):
 
         return r.json()
 
-    def _post(self, uri,data=None):
+    def _post(self, uri, data=None):
         """
         Execute POST request using the resource, action and payload.
         """
@@ -49,11 +49,11 @@ class Kong(object):
 
         r = requests.post(url, json=data, auth=self.auth)
 
-        if r.status_code == requests.codes.created:
+        if r.status_code == requests.codes['created']:
             return r.json()
         else:
             raise Exception('Unexpected HTTP code {}, expected {}'
-                            .format(r.status_code, requests.codes.created))
+                            .format(r.status_code, requests.codes['created']))
 
     def _patch(self, uri, data=None):
         """
@@ -76,7 +76,7 @@ class Kong(object):
 
         r = requests.put(url, data=data, auth=self.auth)
 
-        if r.status_code == requests.codes.created:
+        if r.status_code == requests.codes['created']:
             return True
 
         # Raise if status is not 200 OK
@@ -93,9 +93,9 @@ class Kong(object):
 
         r = requests.delete(url, auth=self.auth)
 
-        if r.status_code != requests.codes.no_content:
+        if r.status_code != requests.codes['no_content']:
             raise Exception('Unexpected HTTP code {}, expected {}'
-                            .format(r.status_code, requests.codes.no_content))
+                            .format(r.status_code, requests.codes['no_content']))
 
         return True
 
@@ -119,7 +119,8 @@ class Kong(object):
         resource = args[0]
 
         if resource not in self.resources:
-            raise ValueError("Resource '{}' none of {}".format(resource, self.resources))
+            raise ValueError("Resource '{}' none of {}".format(
+                resource, self.resources))
 
         url = [self.base_url]
         url.extend(args)

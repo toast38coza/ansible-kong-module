@@ -1,7 +1,7 @@
 from ansible.module_utils.basic import AnsibleModule
 from ansible.module_utils.dotdiff import dotdiff
-from ansible.module_utils.kong.route import KongRoute
 from ansible.module_utils.kong.helpers import *
+from ansible.module_utils.kong.route import KongRoute
 
 DOCUMENTATION = '''
 ---
@@ -39,20 +39,22 @@ def main():
             kong_admin_username=dict(required=False, type='str'),
             kong_admin_password=dict(required=False, type='str', no_log=True),
             service=dict(required=True, type='str'),
-            protocols=dict(required=False, default=['http', 'https'], type='list'),
+            protocols=dict(required=False, default=[
+                           'http', 'https'], type='list'),
             hosts=dict(required=False, type='list'),
             paths=dict(required=False, default=[], type='list'),
             methods=dict(required=False, default=[], type='list'),
             strip_path=dict(required=False, default=True, type='bool'),
             preserve_host=dict(required=False, default=False, type='bool'),
-            state=dict(required=False, default="present", choices=['present', 'absent'], type='str'),
+            state=dict(required=False, default="present",
+                       choices=['present', 'absent'], type='str'),
         ),
         required_if=[
             ('state', 'present', ['service']),
             ('state', 'absent', ['service']),
         ],
         required_one_of=[
-            ('protocols','hosts','paths','methods')
+            ('protocols', 'hosts', 'paths', 'methods')
         ],
         supports_check_mode=True
     )
@@ -66,7 +68,8 @@ def main():
             ansible_module.params['methods'] is None and \
             ansible_module.params['hosts'] is None and \
             ansible_module.params['paths'] is None:
-        ansible_module.fail_json(msg="At least one of protocols, methods, hosts or paths is required when state is 'present'")
+        ansible_module.fail_json(
+            msg="At least one of protocols, methods, hosts or paths is required when state is 'present'")
 
     # Kong 0.14.x
     api_fields = [
@@ -108,7 +111,7 @@ def main():
 
         # Check if the Route with same set of hosts, paths, methods and protocols exists
         orig = k.route_query(service, hosts=data['hosts'], paths=data['paths'],
-                     methods=data['methods'], protocols=data['protocols'])
+                             methods=data['methods'], protocols=data['protocols'])
 
         if orig is not None:
 
@@ -147,7 +150,7 @@ def main():
 
         # Check if the Route exists
         orig = k.route_query(service, hosts=data['hosts'], paths=data['paths'],
-                     methods=data['methods'], protocols=data['protocols'])
+                             methods=data['methods'], protocols=data['protocols'])
 
         # Predict a change if the API exists
         if orig:
@@ -164,7 +167,8 @@ def main():
             try:
                 resp = k.route_delete(orig['id'])
             except Exception as e:
-                ansible_module.fail_json(msg='Error deleting Route: {}'.format(e))
+                ansible_module.fail_json(
+                    msg='Error deleting Route: {}'.format(e))
 
     # Pass through the API response if non-empty
     if resp:

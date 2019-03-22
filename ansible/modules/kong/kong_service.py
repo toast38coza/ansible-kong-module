@@ -1,7 +1,7 @@
 from ansible.module_utils.basic import AnsibleModule
 from ansible.module_utils.dotdiff import dotdiff
-from ansible.module_utils.kong.service import KongService
 from ansible.module_utils.kong.helpers import *
+from ansible.module_utils.kong.service import KongService
 
 DOCUMENTATION = '''
 ---
@@ -35,7 +35,8 @@ def main():
             kong_admin_username=dict(required=False, type='str'),
             kong_admin_password=dict(required=False, type='str', no_log=True),
             name=dict(required=True, type='str'),
-            protocol=dict(required=False, default="http", choices=['http', 'https'], type='str'),
+            protocol=dict(required=False, default="http",
+                          choices=['http', 'https'], type='str'),
             host=dict(required=True, type='str'),
             port=dict(required=False, default=80, type='int'),
             path=dict(required=False, type='str'),
@@ -43,10 +44,11 @@ def main():
             connect_timeout=dict(required=False, default=60000, type='int'),
             write_timeout=dict(required=False, default=60000, type='int'),
             read_timeout=dict(required=False, default=60000, type='int'),
-            state=dict(required=False, default="present", choices=['present', 'absent'], type='str'),
+            state=dict(required=False, default="present",
+                       choices=['present', 'absent'], type='str'),
         ),
         required_if=[
-            ('state', 'present', ['host','name'])
+            ('state', 'present', ['host', 'name'])
         ],
         supports_check_mode=True
     )
@@ -148,7 +150,8 @@ def main():
             try:
                 resp = k.service_delete(name)
             except Exception as e:
-                ansible_module.fail_json(msg='Error deleting service: {}'.format(e))
+                ansible_module.fail_json(
+                    msg='Error deleting service: {}'.format(e))
 
     # Pass through the API response if non-empty
     if resp:

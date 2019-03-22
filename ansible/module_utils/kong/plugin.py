@@ -1,8 +1,9 @@
 import uuid
+
 from ansible.module_utils.kong import Kong
-from ansible.module_utils.kong.service import KongService
-from ansible.module_utils.kong.route import KongRoute
 from ansible.module_utils.kong.consumer import KongConsumer
+from ansible.module_utils.kong.route import KongRoute
+from ansible.module_utils.kong.service import KongService
 from ansible.module_utils.six import iteritems
 
 
@@ -74,7 +75,8 @@ class KongPlugin(KongRoute, KongConsumer, Kong):
             s = self.service_get(service_name)
 
             if s is None:
-                raise ValueError('Service {} not found. Has it been created?'.format(service_name))
+                raise ValueError(
+                    'Service {} not found. Has it been created?'.format(service_name))
 
             service_id = s.get('id')
 
@@ -87,7 +89,8 @@ class KongPlugin(KongRoute, KongConsumer, Kong):
             r = self.route_query(**route_attrs)
 
             if r is None:
-                raise ValueError('Route with requested attributes not found. Has it been created?')
+                raise ValueError(
+                    'Route with requested attributes not found. Has it been created?')
 
             route_id = r.get('id')
 
@@ -102,7 +105,8 @@ class KongPlugin(KongRoute, KongConsumer, Kong):
             c = self.consumer_get(consumer_name)
 
             if c is None:
-                raise ValueError('Consumer {} not found. Has it been created?'.format(consumer_name))
+                raise ValueError(
+                    'Consumer {} not found. Has it been created?'.format(consumer_name))
 
             consumer_id = c.get('id')
 
@@ -163,13 +167,15 @@ class KongPlugin(KongRoute, KongConsumer, Kong):
 
             # Check if Service exists
             if self.service_get(service_name) is None:
-                raise ValueError("Service '{}' not found. Has it been created?".format(service_name))
+                raise ValueError(
+                    "Service '{}' not found. Has it been created?".format(service_name))
 
         if route_attrs:
             r = self.route_query(**route_attrs)
 
             if r is None:
-                raise ValueError('Route with requested attributes not found. Has it been created?')
+                raise ValueError(
+                    'Route with requested attributes not found. Has it been created?')
 
             route_id = r.get('id')
 
@@ -181,7 +187,8 @@ class KongPlugin(KongRoute, KongConsumer, Kong):
             c = self.consumer_get(consumer_name)
 
             if c is None:
-                raise ValueError('Consumer {} not found. Has it been created?'.format(consumer_name))
+                raise ValueError(
+                    'Consumer {} not found. Has it been created?'.format(consumer_name))
 
             consumer_id = c.get('id')
 

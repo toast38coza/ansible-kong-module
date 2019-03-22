@@ -4,6 +4,7 @@ from distutils.version import StrictVersion
 def params_fields_lookup(amod, fields):
     """
     Look up all keys mentioned in 'fields' in the module parameters and return their values.
+
     :param fields: a list of keys to extract from module params
     :type fields: list
     :param amod: the Ansible module to query
@@ -58,11 +59,13 @@ def kong_status_check(kong, amod):
     """
     try:
         if not kong.healthy:
-            amod.fail_json(msg='Kong database unreachable according to status endpoint')
+            amod.fail_json(
+                msg='Kong database unreachable according to status endpoint')
     except Exception as e:
         amod.fail_json(msg='Unable to perform Kong status call: {}'.format(e))
 
     return True
+
 
 def kong_version_check(kong, amod, version):
     """
@@ -80,7 +83,8 @@ def kong_version_check(kong, amod, version):
     kong_version = kong.version
 
     if not version_compare(kong_version, version):
-        amod.warn('Module supports Kong {} and up (found {})'.format(version, kong_version))
+        amod.warn('Module supports Kong {} and up (found {})'.format(
+            version, kong_version))
         return False
 
     return True

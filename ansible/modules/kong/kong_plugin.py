@@ -1,9 +1,8 @@
 import requests
 from ansible.module_utils.basic import AnsibleModule
-from ansible.module_utils.kong.plugin import KongPlugin
-from ansible.module_utils.kong.helpers import *
-
 from ansible.module_utils.dotdiff import dotdiff
+from ansible.module_utils.kong.helpers import *
+from ansible.module_utils.kong.plugin import KongPlugin
 
 DOCUMENTATION = '''
 ---
@@ -33,7 +32,8 @@ def main():
             route=dict(required=False, type='dict'),
             consumer=dict(required=False, type='str'),
             config=dict(required=False, type='dict', default=dict()),
-            state=dict(required=False, default="present", choices=['present', 'absent'], type='str'),
+            state=dict(required=False, default="present",
+                       choices=['present', 'absent'], type='str'),
         ),
         supports_check_mode=True
     )
@@ -56,7 +56,7 @@ def main():
 
     # Convert consumer_name to bool if bool conversion evals to False
     # if consumer_name == 'False':
-        # consumer_name = False
+    # consumer_name = False
 
     # Create KongAPI client instance
     k = KongPlugin(url, auth_user=auth_user, auth_pass=auth_pass)
@@ -79,8 +79,8 @@ def main():
 
     if len(pq) > 1:
         ansible_module.fail_json(
-          msg='Got multiple results for Plugin query name: {}, service: {}, route: {}, consumer: {}'.
-                format(name, service, route, consumer))
+            msg='Got multiple results for Plugin query name: {}, service: {}, route: {}, consumer: {}'.
+            format(name, service, route, consumer))
 
     # Ensure the Plugin is installed on Kong
     if state == "present":
@@ -145,7 +145,8 @@ def main():
                                        consumer_name=consumer)
             except requests.HTTPError as e:
                 err_msg = "Error deleting Plugin."
-                ansible_module.fail_json(msg=err_msg, response=e.response._content)
+                ansible_module.fail_json(
+                    msg=err_msg, response=e.response._content)
 
     # Pass through the API response if non-empty
     if resp:

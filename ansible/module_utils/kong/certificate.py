@@ -1,5 +1,5 @@
-from ansible.module_utils.kong import Kong
 import requests
+from ansible.module_utils.kong import Kong
 
 
 class KongCertificate(Kong):

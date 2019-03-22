@@ -1,5 +1,6 @@
-import requests
 import uuid
+
+import requests
 from ansible.module_utils.kong import Kong
 
 
@@ -30,7 +31,8 @@ class KongConsumer(Kong):
         """
 
         if consumer_id is custom_id is username is None:
-            raise ValueError("Need at least one of 'id', 'custom_id' or 'username'")
+            raise ValueError(
+                "Need at least one of 'id', 'custom_id' or 'username'")
 
         params = {}
 
@@ -150,13 +152,15 @@ class KongConsumer(Kong):
 
         # Check if Consumer exists
         if not self.consumer_get(consumer_idname):
-            raise ValueError('Consumer {} does not exist'.format(consumer_idname))
+            raise ValueError(
+                'Consumer {} does not exist'.format(consumer_idname))
 
         # Check if the Consumer credential configuration exists
 
         # Workaround for idempotency of basic-auth credentials
         if auth_type == 'basic-auth':
-            cq = self.credential_query(consumer_idname, auth_type, {'username':config.get('username')})
+            cq = self.credential_query(consumer_idname, auth_type, {
+                                       'username': config.get('username')})
         else:
             cq = self.credential_query(consumer_idname, auth_type, config)
 
@@ -189,7 +193,8 @@ class KongConsumer(Kong):
 
         # Check if Consumer exists
         if not self.consumer_get(consumer_idname):
-            raise ValueError('Consumer {} does not exist'.format(consumer_idname))
+            raise ValueError(
+                'Consumer {} does not exist'.format(consumer_idname))
 
         # Check if the Consumer Plugin configuration exists
         cpq = self.credential_query(consumer_idname, auth_type, config)

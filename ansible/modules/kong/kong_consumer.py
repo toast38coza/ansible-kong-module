@@ -48,7 +48,8 @@ def main():
             kong_admin_password=dict(required=False, type='str', no_log=True),
             username=dict(required=True, type='list'),
             # custom_id=dict(required=False, type='str'),
-            state=dict(required=False, default="present", choices=['present', 'absent'], type='str'),
+            state=dict(required=False, default="present",
+                       choices=['present', 'absent'], type='str'),
         ),
         supports_check_mode=True
     )
@@ -139,7 +140,8 @@ def main():
                 try:
                     resp = k.consumer_delete(username)
                 except Exception as e:
-                    ansible_module.fail_json(msg='Error deleting Consumer: {}'.format(e))
+                    ansible_module.fail_json(
+                        msg='Error deleting Consumer: {}'.format(e))
 
     # Pass through the API response if non-empty
     if resp:

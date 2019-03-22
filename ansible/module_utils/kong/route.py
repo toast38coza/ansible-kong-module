@@ -1,7 +1,6 @@
+import requests
 from ansible.module_utils.kong import Kong
 from ansible.module_utils.kong.service import KongService
-
-import requests
 
 
 class KongRoute(KongService, Kong):
@@ -34,7 +33,7 @@ class KongRoute(KongService, Kong):
             return r
 
     def route_query(self, service_name, hosts=[], paths=[],
-            methods=[], protocols=[]):
+                    methods=[], protocols=[]):
         """
         Query Kong for a route matching the given attributes.
 
@@ -56,7 +55,8 @@ class KongRoute(KongService, Kong):
         s = self.service_get(service_name)
 
         if s is None:
-            raise ValueError('Service {} not found. Has it been created?'.format(service_name))
+            raise ValueError(
+                'Service {} not found. Has it been created?'.format(service_name))
 
         result = []
 
@@ -64,17 +64,16 @@ class KongRoute(KongService, Kong):
             if (cmp(sorted(r.get('hosts', [])), sorted(hosts)) == 0 and
                 cmp(sorted(r.get('paths', [])), sorted(paths)) == 0 and
                 cmp(sorted(r.get('methods', [])), sorted(methods)) == 0 and
-                cmp(sorted(r.get('protocols', [])), sorted(protocols)) == 0):
-                    result.append(r)
+                    cmp(sorted(r.get('protocols', [])), sorted(protocols)) == 0):
+                result.append(r)
 
         if len(result) > 1:
             raise ValueError('Duplicate routes found. Clean up manually first')
 
         return result[0] if result else None
 
-
     def route_apply(self, service_name, hosts=None, paths=None, methods=None,
-                  protocols=None, strip_path=False, preserve_host=False, route_id=None):
+                    protocols=None, strip_path=False, preserve_host=False, route_id=None):
         """
         Declaratively apply the Route configuration to the server.
         Will choose to POST or PATCH depending on whether the API already exists or not.
@@ -99,7 +98,8 @@ class KongRoute(KongService, Kong):
         """
 
         if (protocols is None and hosts is None and paths is None and methods is None):
-            raise ValueError('Need at least one of protocols, hosts, paths or methods.')
+            raise ValueError(
+                'Need at least one of protocols, hosts, paths or methods.')
 
         if service_name is None:
             raise ValueError('service_name needs to be specified.')
@@ -107,8 +107,8 @@ class KongRoute(KongService, Kong):
         s = self.service_get(service_name)
 
         if s is None:
-            raise ValueError('Service {} not found. Has it been created?'.format(service_name))
-
+            raise ValueError(
+                'Service {} not found. Has it been created?'.format(service_name))
 
         payload = {
             'protocols': protocols,

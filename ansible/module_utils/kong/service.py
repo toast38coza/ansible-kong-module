@@ -1,5 +1,5 @@
-from ansible.module_utils.kong import Kong
 import requests
+from ansible.module_utils.kong import Kong
 
 
 class KongService(Kong):
@@ -30,7 +30,7 @@ class KongService(Kong):
             return r
 
     def service_apply(self, name, host, port=None, protocol=None, path=None, retries=None,
-                  connect_timeout=None, write_timeout=None, read_timeout=None):
+                      connect_timeout=None, write_timeout=None, read_timeout=None):
         """
         Declaratively apply the service configuration to the server.
         Will choose to POST or PATCH depending on whether the service already exists or not.
