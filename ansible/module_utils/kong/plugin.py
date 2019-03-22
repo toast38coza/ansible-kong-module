@@ -76,7 +76,7 @@ class KongPlugin(KongRoute, KongConsumer, Kong):
 
             if s is None:
                 raise ValueError(
-                    'Service {} not found. Has it been created?'.format(service_name))
+                    "Service '{}' not found. Has it been created?".format(service_name))
 
             service_id = s.get('id')
 
@@ -188,7 +188,7 @@ class KongPlugin(KongRoute, KongConsumer, Kong):
 
             if c is None:
                 raise ValueError(
-                    'Consumer {} not found. Has it been created?'.format(consumer_name))
+                    "Consumer '{}' not found. Has it been created?".format(consumer_name))
 
             consumer_id = c.get('id')
 

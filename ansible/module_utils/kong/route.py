@@ -56,7 +56,7 @@ class KongRoute(KongService, Kong):
 
         if s is None:
             raise ValueError(
-                'Service {} not found. Has it been created?'.format(service_name))
+                "Service '{}' not found. Has it been created?".format(service_name))
 
         result = []
 
@@ -108,7 +108,7 @@ class KongRoute(KongService, Kong):
 
         if s is None:
             raise ValueError(
-                'Service {} not found. Has it been created?'.format(service_name))
+                "Service '{}' not found. Has it been created?".format(service_name))
 
         payload = {
             'protocols': protocols,
