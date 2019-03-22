@@ -71,11 +71,13 @@ def main():
     changed = False
     resp = ''
 
-    # Check if the Plugin is already present
-    pq = k.plugin_query(name=name, service_name=service, route_attrs=route,
-                        consumer_name=consumer)
-
-    # ansible_module.fail_json(msg=pq)
+    try:
+        # Check if the Plugin is already present
+        pq = k.plugin_query(name=name, service_name=service,
+                            route_attrs=route, consumer_name=consumer)
+    except Exception as e:
+        ansible_module.fail_json(
+            msg="Error querying plugin: '{}'.".format(e))
 
     if len(pq) > 1:
         ansible_module.fail_json(
