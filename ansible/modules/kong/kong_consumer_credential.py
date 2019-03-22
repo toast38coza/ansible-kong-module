@@ -70,13 +70,16 @@ def main():
     resp = ''
     diff = []
 
-    # Check if the credential for the Consumer exists
-
-    if auth_type == 'basic-auth':
-        cq = k.credential_query(username, auth_type,
-                                config={'username': config.get('username')})
-    else:
-        cq = k.credential_query(username, auth_type, config=config)
+    try:
+        # Check if the credential for the Consumer exists
+        if auth_type == 'basic-auth':
+            cq = k.credential_query(username, auth_type,
+                                    config={'username': config.get('username')})
+        else:
+            cq = k.credential_query(username, auth_type, config=config)
+    except Exception as e:
+        ansible_module.fail_json(
+            msg="Error querying credential: '{}'.".format(e))
 
     if len(cq) > 1:
         ansible_module.fail_json(

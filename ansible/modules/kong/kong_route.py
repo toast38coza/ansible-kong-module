@@ -109,9 +109,13 @@ def main():
     # Ensure the Route is registered in Kong
     if state == "present":
 
-        # Check if the Route with same set of hosts, paths, methods and protocols exists
-        orig = k.route_query(service, hosts=data['hosts'], paths=data['paths'],
-                             methods=data['methods'], protocols=data['protocols'])
+        try:
+            # Check if the Route with same set of hosts, paths, methods and protocols exists
+            orig = k.route_query(service, hosts=data['hosts'], paths=data['paths'],
+                                 methods=data['methods'], protocols=data['protocols'])
+        except Exception as e:
+            ansible_module.fail_json(
+                msg="Error querying route: '{}'.".format(e))
 
         if orig is not None:
 
@@ -148,9 +152,13 @@ def main():
     # Ensure the Route is deleted
     if state == "absent":
 
-        # Check if the Route exists
-        orig = k.route_query(service, hosts=data['hosts'], paths=data['paths'],
-                             methods=data['methods'], protocols=data['protocols'])
+        try:
+            # Check if the Route exists
+            orig = k.route_query(service, hosts=data['hosts'], paths=data['paths'],
+                                 methods=data['methods'], protocols=data['protocols'])
+        except Exception as e:
+            ansible_module.fail_json(
+                msg="Error querying route: '{}'.".format(e))
 
         # Predict a change if the API exists
         if orig:
