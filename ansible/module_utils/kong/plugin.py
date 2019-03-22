@@ -1,14 +1,16 @@
 import uuid
 from ansible.module_utils.kong import Kong
-from ansible.module_utils.kong_api import KongAPI
-from ansible.module_utils.kong_consumer import KongConsumer
+from ansible.module_utils.kong.service import KongService
+from ansible.module_utils.kong.route import KongRoute
+from ansible.module_utils.kong.consumer import KongConsumer
 from ansible.module_utils.six import iteritems
 
 
-class KongPlugin(KongAPI, KongConsumer, Kong):
+class KongPlugin(KongRoute, KongConsumer, Kong):
     """
     KongPlugin manages Plugin objects in Kong.
-    Uses KongAPI and KongConsumer as mixins to query APIs and Consumers.
+    Uses KongServie, KongRoute and KongConsumer as mixins to query Services, Routes
+    and Consumers.
     """
 
     @staticmethod
@@ -35,7 +37,7 @@ class KongPlugin(KongAPI, KongConsumer, Kong):
 
         return self._get('plugins')
 
-    def plugin_query(self, name, api_name=None, consumer_name=None, plugin_id=None):
+    def plugin_query(self, name, service_name=None, route_attrs=None, consumer_name=None, plugin_id=None):
         """
         Query Kong for a Plugin matching the given properties.
         Raises requests.HTTPError and ValueError.
@@ -44,16 +46,18 @@ class KongPlugin(KongAPI, KongConsumer, Kong):
         :type plugin_id: str
         :param name: 'name' field
         :type name: str
-        :param api_name: name of the API to resolve
-        :type api_name: str
+        :param service_name: name of the Service to resolve
+        :type service_name: str
+        :param route_attrs: attributes of the Route to resolve
+        :type route_attrs: dict
         :param consumer_name: name of the Consumer to resolve
         :type consumer_name: str
         :return: dictionary with 'total' and 'data' keys
         :rtype: dict
         """
 
-        if plugin_id is name is api_name is consumer_name is None:
-            raise ValueError("Need at least one of 'plugin_id', 'name', 'api_name' or 'consumer_name'")
+        if plugin_id is name is None:
+            raise ValueError("Need at least one of 'plugin_id' or 'name'")
 
         params = {
             'name': name
@@ -65,18 +69,31 @@ class KongPlugin(KongAPI, KongConsumer, Kong):
             uuid.UUID(plugin_id)
             params['id'] = plugin_id
 
-        # Resolve api_name to an API ID
-        if api_name is not None:
-            a = self.api_get(api_name)
+        # Resolve service_name to a Service ID
+        if service_name is not None:
+            s = self.service_get(service_name)
 
-            if a is None:
-                raise ValueError('API {} not found. Has it been created?'.format(api_name))
+            if s is None:
+                raise ValueError('Service {} not found. Has it been created?'.format(service_name))
 
-            api_id = a.get('id')
+            service_id = s.get('id')
 
-            uuid.UUID(api_id)
+            uuid.UUID(service_id)
 
-            params['api_id'] = api_id
+            params['service_id'] = service_id
+
+        # Resolve route attribute dictionary to a Route ID
+        if route_attrs is not None:
+            r = self.route_query(**route_attrs)
+
+            if r is None:
+                raise ValueError('Route with requested attributes not found. Has it been created?')
+
+            route_id = r.get('id')
+
+            uuid.UUID(route_id)
+
+            params['route_id'] = route_id
 
         # Resolve consumer_name to a Consumer ID
         # consumer_name can be False, in which case the result is filtered to
@@ -97,12 +114,21 @@ class KongPlugin(KongAPI, KongConsumer, Kong):
         p = self._get('plugins', params=params).get('data', None)
 
         # Remove plugin entries that have a `consumer_id` set
-        if consumer_name is False:
+        if not consumer_name:
             p = [x for x in p if not x.get('consumer_id')]
+
+        # Remove plugin entries that have a `service_id` set
+        if not service_name:
+            p = [x for x in p if not x.get('service_id')]
+
+        # Remove plugin entries that have a `route_id` set
+        if not route_attrs:
+            p = [x for x in p if not x.get('route_id')]
 
         return p
 
-    def plugin_apply(self, name, config=None, api_name=None, consumer_name=False):
+    def plugin_apply(self, name, config=None, service_name=None,
+                     route_attrs=None, consumer_name=False):
         """
         Idempotently apply the Plugin configuration on the server.
         See Kong API documentation for more info on the arguments of this method.
@@ -116,8 +142,10 @@ class KongPlugin(KongAPI, KongConsumer, Kong):
         :type name: str
         :param config: configuration parameters for the Plugin
         :type config: dict
-        :param api_name: name of the API to configure the Plugin on
-        :type api_name: str
+        :param service_name: name of the Service to configure the Plugin on
+        :type service_name: str
+        :param route_attrs: attributes of the Route to configure the Plugin on
+        :type route_attrs: dict
         :param consumer_name: name of the Consumer to configure the plugin for
         :type consumer_name: str
         :return: whether the Plugin resource was touched or not
@@ -126,19 +154,28 @@ class KongPlugin(KongAPI, KongConsumer, Kong):
 
         uri = ['plugins']
 
-        if api_name:
-            uri = ['apis', api_name, 'plugins']
-
         data = {
             'name': name,
         }
 
-        if config is not None:
-            if not isinstance(config, dict):
-                raise ValueError("'config' parameter is not a dict")
+        if service_name:
+            uri = ['services', service_name, 'plugins']
 
-            # Merge config entries into payload
-            data.update(self._prepare_config(config))
+            # Check if Service exists
+            if self.service_get(service_name) is None:
+                raise ValueError("Service '{}' not found. Has it been created?".format(service_name))
+
+        if route_attrs:
+            r = self.route_query(**route_attrs)
+
+            if r is None:
+                raise ValueError('Route with requested attributes not found. Has it been created?')
+
+            route_id = r.get('id')
+
+            uuid.UUID(route_id)
+
+            uri = ['routes', route_id, 'plugins']
 
         if consumer_name:
             c = self.consumer_get(consumer_name)
@@ -152,15 +189,19 @@ class KongPlugin(KongAPI, KongConsumer, Kong):
 
             data['consumer_id'] = consumer_id
 
-        # Check if API exists first
-        if self.api_get(api_name) is None:
-            raise ValueError("API '{}' not found. Has it been created?".format(api_name))
+        if config is not None:
+            if not isinstance(config, dict):
+                raise ValueError("'config' parameter is not a dict")
+
+            # Merge config entries into payload
+            data.update(self._prepare_config(config))
 
         # Query the plugin with the given criteria
-        p = self.plugin_query(name=name, consumer_name=consumer_name, api_name=api_name)
+        p = self.plugin_query(name=name, service_name=service_name,
+                              route_attrs=route_attrs, consumer_name=consumer_name)
         if len(p) > 1:
-            raise ValueError("Found multiple Plugin records for name: '{}', consumer_name: '{}', api_name: '{}'".
-                             format(name, consumer_name, api_name))
+            raise ValueError("Found multiple Plugin records for name: '{}', service: '{}', route: '{}', consumer: '{}'".
+                             format(name, service_name, route_attrs, consumer_name))
 
         # Set the Plugin ID in the PUT request if the Plugin entry already exists
         if p:
@@ -171,7 +212,7 @@ class KongPlugin(KongAPI, KongConsumer, Kong):
 
         return r
 
-    def plugin_delete(self, name, consumer_name=False, api_name=None):
+    def plugin_delete(self, name, service_name=None, route_attrs=None, consumer_name=False):
         """
         Delete the API if it exists.
 
@@ -179,19 +220,22 @@ class KongPlugin(KongAPI, KongConsumer, Kong):
         :type name: str
         :param consumer_name: name of the Consumer to delete the Plugin from
         :type consumer_name: str
-        :param api_name: name of the API to delete the Plugin from
-        :type api_name: str
+        :param route_attrs: attributes of the Route to delete the Plugin from
+        :type route_attrs: dict
+        :param service_name: name of the Service to delete the Plugin from
+        :type service_name: str
         :return: True on a successful delete, False if no action taken
         :rtype: bool
         """
 
-        p = self.plugin_query(name=name, consumer_name=consumer_name, api_name=api_name)
+        p = self.plugin_query(name=name, service_name=service_name,
+                              route_attrs=route_attrs, consumer_name=consumer_name)
         if len(p) > 1:
-            raise ValueError("Found multiple Plugin records for name: '{}', consumer_name: '{}', api_name: '{}'".
-                             format(name, consumer_name, api_name))
+            raise ValueError("Found multiple Plugin records for name: '{}', service: '{}', route: '{}', consumer: '{}'".
+                             format(name, service_name, route_attrs, consumer_name))
 
         # Delete the Plugin configuration if it exists
         if p:
-            return self._delete(['apis', api_name, 'plugins', p[0].get('id')])
+            return self._delete(['plugins', p[0].get('id')])
 
         return False

@@ -1,0 +1,106 @@
+---
+
+- hosts: localhost
+  gather_facts: False
+
+  vars:
+    kong_admin_uri: "http://localhost:8001"
+    kong_services:
+      - name: httpbin
+        host: httpbin.org
+        routes:
+          - hosts:
+              - localhost
+              - example.com
+            paths:
+              - /
+            state: present
+        state: present
+      - name: ifconfig
+        host: ifconfig.co
+        state: absent
+
+    kong_consumers:
+      - username: ansible
+        credentials:
+          - type: key-auth
+            config:
+              key: 123456
+          - type: basic-auth
+            config:
+              username: ansible
+              password: qwerty
+        state: present
+
+    kong_plugins:
+      - name: basic-auth
+        service: httpbin
+        route:
+          hosts:
+            - example.org
+        config:
+          hide_credentials: true
+        state: present
+
+    kong_certificates:
+      - sni: localhost
+        cert: "{{ lookup('file', 'files/example_com.cert.pem') }}"
+        key: "{{ lookup('file', 'files/example_com.key.pem') }}"
+        state: present
+
+  tasks:
+    - name: manage Kong services
+      kong_service:
+        kong_admin_uri: "{{ kong_admin_uri }}"
+        name: "{{ item.name }}"
+        protocol: https
+        host: "{{ item.host }}"
+        state: "{{ item.state|d('present') }}"
+      loop: "{{ kong_services }}"
+
+    - name: manage Kong routes
+      kong_route:
+        kong_admin_uri: "{{ kong_admin_uri }}"
+        service: "{{ item.0.name }}"
+        hosts: "{{ item.1.hosts }}"
+        paths: "{{ item.1.paths }}"
+        state: "{{ item.1.state|d('present') }}"
+      loop: "{{ kong_services|subelements('routes', skip_missing=True) }}"
+      when: (item.1.state is not defined) or
+            (item.1.state == 'present')
+
+    - name: manage Kong consumers
+      kong_consumer:
+        kong_admin_uri: "{{ kong_admin_uri }}"
+        username: "{{ item.username }}"
+        state: "{{ item.state|d('present') }}"
+      loop: "{{ kong_consumers }}"
+
+    - name: manage Kong consumers' credentials
+      kong_consumer_credential:
+        kong_admin_uri: "{{ kong_admin_uri }}"
+        username: "{{ item.0.username }}"
+        type: "{{ item.1.type }}"
+        config: "{{ item.1.config }}"
+        state: "{{ item.1.state|d('present') }}"
+      no_log: True
+      loop: "{{ kong_consumers|subelements('credentials') }}"
+
+    - name: manage Kong plugins
+      kong_plugin:
+        kong_admin_uri: "{{ kong_admin_uri }}"
+        name: "{{ item.name }}"
+        service: "{{ item.service }}"
+        config: "{{ item.config }}"
+        state: "{{ item.state|d('present') }}"
+      loop: "{{ kong_plugins }}"
+
+    - name: manage Kong certificates
+      kong_certificate:
+        kong_admin_uri: "{{ kong_admin_uri }}"
+        sni: "{{ item.sni }}"
+        cert: "{{ item.cert }}"
+        key: "{{ item.key }}"
+        state: "{{ item.state|d('present') }}"
+      no_log: True
+      loop: "{{ kong_certificates }}"

@@ -1,6 +1,6 @@
 from ansible.module_utils.basic import AnsibleModule
-from ansible.module_utils.kong_consumer import KongConsumer
-from ansible.module_utils.kong_helpers import *
+from ansible.module_utils.kong.consumer import KongConsumer
+from ansible.module_utils.kong.helpers import *
 
 DOCUMENTATION = '''
 ---
@@ -11,7 +11,7 @@ short_description: Configure a Kong Consumer object.
 EXAMPLES = '''
 Setting custom_id's on Consumers is currently not supported;
 their usefulness is limited, and they require more lookups (round-trips)
-for actions that require either a username or the consumer's UUID.  
+for actions that require either a username or the consumer's UUID.
 
 - name: Configure a Consumer
   kong_consumer:
