@@ -64,10 +64,10 @@ def main():
 
     # Emulates 'required_one_of' argument spec, as it cannot be made conditional
     if ansible_module.params['state'] == 'present' and \
-            ansible_module.params['protocols'] is None and \
-            ansible_module.params['methods'] is None and \
-            ansible_module.params['hosts'] is None and \
-            ansible_module.params['paths'] is None:
+            not ansible_module.params['protocols'] and \
+            not ansible_module.params['methods'] and \
+            not ansible_module.params['hosts'] and \
+            not ansible_module.params['paths']:
         ansible_module.fail_json(
             msg="At least one of protocols, methods, hosts or paths is required when state is 'present'")
 
