@@ -41,7 +41,7 @@ def main():
             service=dict(required=True, type='str'),
             protocols=dict(required=False, default=[
                            'http', 'https'], type='list'),
-            hosts=dict(required=False, type='list'),
+            hosts=dict(required=False, default=[], type='list'),
             paths=dict(required=False, default=[], type='list'),
             methods=dict(required=False, default=[], type='list'),
             strip_path=dict(required=False, default=True, type='bool'),
