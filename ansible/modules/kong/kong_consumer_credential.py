@@ -47,8 +47,8 @@ def main():
             type=dict(required=True, type='str',
                       choices=['acls', 'basic-auth', 'hmac-auth', 'key-auth', 'jwt', 'oauth2']),
             config=dict(required=False, type='dict', default=dict()),
-            state=dict(required=False, type='str', choices=[
-                       'present', 'absent'], default='present'),
+            state=dict(required=False, type='str',
+                       choices=['present', 'absent'], default='present'),
         ),
         supports_check_mode=True
     )
@@ -78,9 +78,14 @@ def main():
     diff = []
 
     try:
-        # Check if the credential for the Consumer exists
+        # Check if the credential for the Consumer exists.
         cq = k.credential_query(username, auth_type, config=config)
+    except ValueError as e:
+        # Missing Consumer is not an error when state is 'absent'.
+        if state == 'absent':
+            ansible_module.exit_json(msg=str(e))
 
+        ansible_module.fail_json(msg=str(e))
     except Exception as e:
         ansible_module.fail_json(
             msg="Error querying credential: '{}'.".format(e))
@@ -90,7 +95,7 @@ def main():
             msg='Got multiple results for credential query.', results=cq)
 
     # Ensure the Consumer Plugins is configured
-    if state == "present":
+    if state == 'present':
         if cq:
             # Only make changes when Ansible is not run in check mode
             if not ansible_module.check_mode:
@@ -134,7 +139,7 @@ def main():
                     ansible_module.fail_json(msg=str(e))
 
     # Ensure the Consumer is deleted
-    if state == "absent" and cq:
+    if state == 'absent' and cq:
 
         # Get the first (and only) element of the query
         orig = cq[0]
