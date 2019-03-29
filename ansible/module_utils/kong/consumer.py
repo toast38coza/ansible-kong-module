@@ -66,7 +66,7 @@ class KongConsumer(Kong):
             params['username'] = username
 
         # Can raise requests.HTTPError
-        return self._get_multipart('consumers')
+        return self.consumer_list()
 
     def consumer_get(self, idname):
         """
@@ -92,31 +92,28 @@ class KongConsumer(Kong):
         :type username: str
         :param custom_id: custom ID of the consumer
         :type custom_id: str
-        :return: Consumer object if created, False if no action taken
-        :rtype: dict | bool
+        :return: the created or updated Consumer object
+        :rtype: dict
         """
         if username is custom_id is None:
             raise ValueError('Need at least one of name or custom_id.')
-
-        if username and custom_id:
-            raise ValueError('name and custom_id are mutually exclusive.')
 
         # Pick either value for the GET request
         idname = username if username is not None else custom_id
 
         data = {}
 
-        # Build the request, name and custom_id are mutually exclusive
         if username:
             data['username'] = username
-        elif custom_id:
+        if custom_id:
             data['custom_id'] = custom_id
 
         # Only apply if the consumer does not already exist
-        if not self.consumer_get(idname):
-            return self._put(['consumers', idname], data=data)
-
-        return False
+        c = self.consumer_get(idname)
+        if not c:
+            return self._post(['consumers'], data=data)
+        else:
+            return self._patch(['consumers', idname], data=data)
 
     def consumer_delete(self, idname):
         """

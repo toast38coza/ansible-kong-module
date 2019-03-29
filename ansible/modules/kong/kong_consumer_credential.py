@@ -102,7 +102,6 @@ def main():
                 try:
                     resp = k.credential_apply(
                         username, auth_type, config=config)
-
                 except Exception as e:
                     ansible_module.fail_json(msg=str(e))
 
