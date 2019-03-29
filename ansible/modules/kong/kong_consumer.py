@@ -1,6 +1,7 @@
 from ansible.module_utils.basic import AnsibleModule
 from ansible.module_utils.kong.consumer import KongConsumer
-from ansible.module_utils.kong.helpers import *
+from ansible.module_utils.kong.helpers import (kong_status_check,
+                                               kong_version_check)
 
 DOCUMENTATION = '''
 ---
@@ -108,14 +109,9 @@ def main():
             # Only make changes when Ansible is not run in check mode
             if not ansible_module.check_mode and changed:
                 try:
-
-                    # Apply changes to Kong
                     resp = k.consumer_apply(**data)
-
                 except Exception as e:
-                    app_err = "Consumer rejected by Kong: '{}'. " \
-                              "Please check configuration of the Consumer you are trying to configure."
-                    ansible_module.fail_json(msg=app_err.format(e))
+                    ansible_module.fail_json(msg=str(e))
 
     # Ensure the Consumer is deleted
     if state == "absent":

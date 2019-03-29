@@ -1,6 +1,9 @@
 from ansible.module_utils.basic import AnsibleModule
 from ansible.module_utils.dotdiff import dotdiff
-from ansible.module_utils.kong.helpers import *
+from ansible.module_utils.kong.helpers import (kong_status_check,
+                                               kong_version_check,
+                                               params_fields_lookup,
+                                               render_list)
 from ansible.module_utils.kong.service import KongService
 
 DOCUMENTATION = '''

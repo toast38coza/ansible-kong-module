@@ -115,7 +115,7 @@ class KongPlugin(KongRoute, KongConsumer, Kong):
             params['consumer_id'] = consumer_id
 
         # Can raise requests.HTTPError
-        p = self._get('plugins', params=params).get('data', None)
+        p = self._get('plugins').get('data', None)
 
         # Remove plugin entries that have a `consumer_id` set
         if not consumer_name:
