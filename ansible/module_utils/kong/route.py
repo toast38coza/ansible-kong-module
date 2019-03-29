@@ -35,7 +35,7 @@ class KongRoute(KongService, Kong):
     def route_query(self, service_name, hosts=[], paths=[],
                     methods=[], protocols=[]):
         """
-        Query Kong for a route matching the given attributes.
+        Query Kong for a route with the given attributes.
 
         :param service_name: service name or id to query route from
         :type service_name: str
@@ -51,20 +51,18 @@ class KongRoute(KongService, Kong):
         :rtype: dict
         """
 
-        # Resolve service_name to a Service ID
-        s = self.service_get(service_name)
-
-        if s is None:
+        # Look up the given service.
+        if self.service_get(service_name) is None:
             raise ValueError(
                 "Service '{}' not found. Has it been created?".format(service_name))
 
         result = []
 
         for r in self.route_list(service_name):
-            if (cmp(sorted(r.get('hosts', [])), sorted(hosts)) == 0 and
-                cmp(sorted(r.get('paths', [])), sorted(paths)) == 0 and
-                cmp(sorted(r.get('methods', [])), sorted(methods)) == 0 and
-                    cmp(sorted(r.get('protocols', [])), sorted(protocols)) == 0):
+            if (set(r.get('hosts', [])) == set(hosts) and
+                set(r.get('paths', [])) == set(paths) and
+                set(r.get('methods', [])) == set(methods) and
+                    set(r.get('protocols', [])) == set(protocols)):
                 result.append(r)
 
         if len(result) > 1:
