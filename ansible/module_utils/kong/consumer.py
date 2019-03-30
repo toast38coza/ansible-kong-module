@@ -26,8 +26,8 @@ class KongConsumer(Kong):
         """
         Get a list of consumers configured in Kong.
 
-        :return: a dictionary of consumer info
-        :rtype: dict
+        :return: a list of Consumers
+        :rtype: list
         """
         return self._get_multipart('consumers')
 
