@@ -6,6 +6,7 @@ ansible.module_utils.kong.plugin implements Plugin operations on the Kong Admin 
 """
 import uuid
 
+import requests
 from ansible.module_utils.kong import Kong
 from ansible.module_utils.kong.consumer import KongConsumer
 from ansible.module_utils.kong.route import KongRoute
@@ -38,7 +39,12 @@ class KongPlugin(KongRoute, KongConsumer, Kong):
         :return: the Plugin object
         :rtype: dict
         """
-        return self._get(['plugins', plugin_id])
+        try:
+            r = self._get(['plugins', plugin_id])
+        except requests.HTTPError:
+            return None
+        else:
+            return r
 
     def plugin_query(self, name, service_name=None, route_name=None, consumer_name=None):
         """
@@ -70,8 +76,7 @@ class KongPlugin(KongRoute, KongConsumer, Kong):
         if service_name:
             s = self.service_get(service_name)
             if s is None:
-                raise ValueError(
-                    "Service '{}' not found.".format(service_name))
+                raise ValueError("Service '{}' not found".format(service_name))
 
             service_id = s.get('id')
             uuid.UUID(service_id)
@@ -80,7 +85,7 @@ class KongPlugin(KongRoute, KongConsumer, Kong):
         if route_name:
             r = self.route_get(route_name)
             if r is None:
-                raise ValueError("Route '{}' not found.".format(route_name))
+                raise ValueError("Route '{}' not found".format(route_name))
 
             route_id = r.get('id')
             uuid.UUID(route_id)
@@ -90,7 +95,7 @@ class KongPlugin(KongRoute, KongConsumer, Kong):
             c = self.consumer_get(consumer_name)
             if c is None:
                 raise ValueError(
-                    "Consumer '{}' not found.".format(consumer_name))
+                    "Consumer '{}' not found".format(consumer_name))
 
             consumer_id = c.get('id')
             uuid.UUID(consumer_id)
@@ -162,15 +167,14 @@ class KongPlugin(KongRoute, KongConsumer, Kong):
         if service_name:
             s = self.service_get(service_name)
             if s is None:
-                raise ValueError(
-                    "Service '{}' not found.".format(service_name))
+                raise ValueError("Service '{}' not found".format(service_name))
 
             data['service'] = s
 
         if route_name:
             r = self.route_get(route_name)
             if r is None:
-                raise ValueError("Route '{}' not found.".format(route_name))
+                raise ValueError("Route '{}' not found".format(route_name))
 
             data['route'] = r
 
@@ -178,7 +182,7 @@ class KongPlugin(KongRoute, KongConsumer, Kong):
             c = self.consumer_get(consumer_name)
             if c is None:
                 raise ValueError(
-                    "Consumer '{}' not found.".format(consumer_name))
+                    "Consumer '{}' not found".format(consumer_name))
 
             data['consumer'] = c
 
