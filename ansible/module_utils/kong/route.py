@@ -1,134 +1,193 @@
+"""
+ansible.module_utils.kong.route implements Route operations on the Kong Admin API.
+
+:authors: Timo Beckers
+:license: MIT
+"""
+import uuid
+
 import requests
 from ansible.module_utils.kong import Kong
 from ansible.module_utils.kong.service import KongService
 
 
 class KongRoute(KongService, Kong):
+    """
+    KongPlugin manages Route objects in Kong.
 
-    def route_list(self, service_name):
+    Uses KongService as mixins to query Services.
+    """
+
+    def route_list(self, service_idname):
         """
-        Get a list of Routes associated to a Kong Service.
+        Get a list of Routes for the given Service.
 
-        :param service_name: service name to query route from
-        :type service_name: str
-        :return: a list with routes
+        :param service_idname: the ID or name of the Service
+        :type service_idname: str
+        :return: a list of Routes
         :rtype: list
         """
-        return self._get(['services', service_name, 'routes']).get('data', [])
+        return self._get_multipart(['services', service_idname, 'routes'])
 
-    def route_get(self, route_id):
+    def route_get(self, idname):
         """
-        Get a specific Route by it's ID
+        Get a specific Route by its ID or name.
 
-        :param id: id of the Route
-        :type id: str
-        :return: route object
+        :param idname: ID or name of the Route
+        :type idname: str
+        :return: Route object
         :rtype: dict
         """
         try:
-            r = self._get(['routes', route_id])
+            r = self._get(['routes', idname])
         except requests.HTTPError:
             return None
         else:
             return r
 
-    def route_query(self, service_name, hosts=[], paths=[],
-                    methods=[], protocols=[]):
+    def route_query(self, service_idname, protocols=[],
+                    hosts=[], paths=[], methods=[], snis=[], sources=[], destinations=[]):
         """
-        Query Kong for a route with the given attributes.
+        Query for Routes with the given attributes.
 
-        :param service_name: service name or id to query route from
-        :type service_name: str
-        :param hosts: hosts, requested route should have
-        :type hosts: list
-        :param paths: paths, requested route should have
-        :type paths: list
-        :param methods: methods, requested route should have
-        :type methods: list
-        :param protocols: protocols, requested route should have
+        :param service_idname: Service ID or name to query route from
+        :type service_idname: str
+        :param protocols: protocols of the Route
         :type protocols: list
-        :return: a route matching a combination of hosts, paths, methods and protocols
-        :rtype: dict
+        :param hosts: hosts of the Route
+        :type hosts: list
+        :param paths: paths of the Route
+        :type paths: list
+        :param methods: methods of the Route
+        :type methods: list
+        :param snis: snis of the Route
+        :type snis: list
+        :param sources: sources of the Route
+        :type sources: list
+        :param destinations: destinations of the Route
+        :type destinations: list
+        :return: list of Routes matching the given parameters
+        :rtype: list
         """
+        if not protocols:
+            raise ValueError("'protocols' is required")
 
-        # Look up the given service.
-        if self.service_get(service_name) is None:
-            raise ValueError(
-                "Service '{}' not found. Has it been created?".format(service_name))
+        if self.service_get(service_idname) is None:
+            raise ValueError("Service '{}' not found".format(service_idname))
 
-        result = []
-
-        for r in self.route_list(service_name):
-            if (set(r.get('hosts', [])) == set(hosts) and
+        return [r for r in self.route_list(service_idname) if
+                set(r.get('protocols', [])) == set(protocols) and
+                set(r.get('hosts', [])) == set(hosts) and
                 set(r.get('paths', [])) == set(paths) and
                 set(r.get('methods', [])) == set(methods) and
-                    set(r.get('protocols', [])) == set(protocols)):
-                result.append(r)
+                set(r.get('snis', [])) == set(snis) and
+                set(r.get('sources', [])) == set(sources) and
+                set(r.get('destinations', [])) == set(destinations)
+                ]
 
-        if len(result) > 1:
-            raise ValueError('Duplicate routes found. Clean up manually first')
-
-        return result[0] if result else None
-
-    def route_apply(self, service_name, hosts=None, paths=None, methods=None,
-                    protocols=None, strip_path=False, preserve_host=False, route_id=None):
+    def route_apply(self, service_idname, name=None, protocols=[],
+                    hosts=[], paths=[], methods=[],
+                    snis=[], sources=[], destinations=[],
+                    regex_priority=0, strip_path=False, preserve_host=False):
         """
-        Declaratively apply the Route configuration to the server.
-        Will choose to POST or PATCH depending on whether the API already exists or not.
-        See Kong API documentation for more info on the arguments of this method.
+        Apply the Route configuration.
 
-        :param service_id: id of a Service to apply the Route to
+        This method will not perform a query based on attributes if idname is
+        specified. Therefore, a name cannot be set on an existing Route.
+
+        :param service_idname: id of a Service to apply the Route to
+        :type service_idname: str
+        :param name: id or name of the Route to manage
         :type name: str
-        :param hosts: list of hostnames pointing to Kong for this Route
+        :param hosts: list of hostnames the Route responds to
         :type hosts: list
-        :param paths: list of paths that point to the Route
+        :param paths: list of paths for the Route
         :type paths: list
-        :param methods: list of methods supported by paths of the Route
+        :param methods: list of HTTP verbs for the Route
         :type methods: list
-        :param methods: list of protocols supported by the Route
+        :param methods: list of protocols for the Route
         :type methods: list
-        :param strip_path: strip the request URI from the request upstream
+        :param snis: list of snis for the Route
+        :type snis: list
+        :param sources: list of sources for the Route
+        :type sources: list
+        :param destinations: list of destinations for the Route
+        :type destinations: list
+        :param regex_priority: numeric priority of the regex/URI match
+        :type regex_priority: int
+        :param strip_path: strip the URI from the request
         :type strip_uri: bool
-        :param preserve_host: preserve the hostname of the upstream request
+        :param preserve_host: preserve the Host header of the request
         :type preserve_host: bool
-        :return: interpreted Kong response
+        :return: the resulting Route object
         :rtype: dict
         """
+        if not protocols:
+            raise ValueError("'protocols' is required")
 
-        if (protocols is None and hosts is None and paths is None and methods is None):
+        if service_idname is None:
+            raise ValueError("'service_idname' is required")
+
+        if ('http' in protocols or 'https' in protocols) and (not hosts and not paths and not methods):
             raise ValueError(
-                'Need at least one of protocols, hosts, paths or methods.')
+                "Need at least one of hosts, paths or methods with http or https protocols")
 
-        if service_name is None:
-            raise ValueError('service_name needs to be specified.')
+        if ('tcp' in protocols or 'tls' in protocols) and (not snis and not sources and not destinations):
+            raise ValueError(
+                "Need at least one of snis, sources or destinations with tcp or tls protocols")
 
-        s = self.service_get(service_name)
-
+        s = self.service_get(service_idname)
         if s is None:
-            raise ValueError(
-                "Service '{}' not found. Has it been created?".format(service_name))
+            raise ValueError("Service '{}' not found".format(service_idname))
 
-        payload = {
+        data = {
+            'service': s,
             'protocols': protocols,
-            'methods': methods,
             'hosts': hosts,
             'paths': paths,
+            'methods': methods,
+            'snis': snis,
+            'sources': sources,
+            'destinations': destinations,
+            'regex_priority': regex_priority,
             'strip_path': strip_path,
             'preserve_host': preserve_host,
-            'service': {
-                'id': s.get('id')
-            }
         }
 
-        # check if the API is already defined in Kong
-        if route_id:
-            # patch the resource at /routes/{id}
-            r = self._patch(['routes', route_id], data=payload)
-        else:
-            # post new API to the root of /apis
-            r = self._post('routes', data=payload)
+        r = None
+        if name:
+            # Only manage a named Route resource if name is specified.
+            r = self.route_get(name)
 
-        return r
+            # If name is not a UUID, use it as the payload's 'name' key.
+            try:
+                uuid.UUID(name)
+            except:
+                data['name'] = name
+        else:
+            # Query the Route based on its attributes.
+            rq = self.route_query(
+                service_idname, protocols=protocols,
+                hosts=hosts, paths=paths, methods=methods,
+                snis=snis, sources=sources, destinations=destinations,
+            )
+
+            if len(rq) > 1:
+                raise ValueError(
+                    "Multiple Route records queried: {}".format(r))
+
+            if rq:
+                r = rq[0]
+
+        if r:
+            # Patch an existing Route.
+            resp = self._patch(['routes', r.get('id')], data=data)
+        else:
+            # Insert new Route.
+            resp = self._post(
+                ['services', service_idname, 'routes'], data=data)
+
+        return resp
 
     def route_delete(self, route_id):
         """

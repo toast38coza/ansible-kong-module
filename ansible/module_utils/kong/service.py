@@ -11,19 +11,19 @@ class KongService(Kong):
         :return: a dictionary of Services info
         :rtype: dict
         """
-        return self._get('services')
+        return self._get_multipart('services')
 
-    def service_get(self, name):
+    def service_get(self, idname):
         """
         Look up a specific Service in Kong.
 
-        :param name: name of the Service to fetch
-        :type name: str
+        :param idname: ID or name of the Service to fetch
+        :type idname: str
         :return: all properties of the Service
         :rtype: dict
         """
         try:
-            r = self._get(['services', name])
+            r = self._get(['services', idname])
         except requests.HTTPError:
             return None
         else:
