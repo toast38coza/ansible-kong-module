@@ -1,13 +1,20 @@
+"""
+ansible.module_utils.kong.errors is the error package for the Kong Admin API client.
+
+:authors: Timo Beckers
+:license: MIT
+"""
 import requests
 
 
 def raise_for_error(response):
     """
+    Raise a KongError when the response code is between 400 and 499.
+
     :params response: The request's Response object.
     :type response: requests.Response
     :rtype: None
     """
-
     if not isinstance(response, requests.Response):
         raise ValueError("response argument is not a requests.Response")
 
@@ -23,8 +30,10 @@ def raise_for_error(response):
 
 
 class KongError(requests.HTTPError):
+    """KongError is a requests.HTTPError containing Kong API error fields."""
 
     def __init__(self, code=None, fields=None, message=None, name=None):
+        """Initialize a KongError."""
         requests.HTTPError.__init__(self)
 
         if message is None:
@@ -36,4 +45,5 @@ class KongError(requests.HTTPError):
         self.name = name
 
     def __str__(self):
+        """Return a string containing the Kong API error message."""
         return "Kong API error: " + self.message
