@@ -33,8 +33,6 @@ Some plugins like basic-auth and hmac-auth have primary keys (eg. username)
 and can be deleted by matching only the primary key.
 '''
 
-MIN_VERSION = '1.0.0'
-
 
 def main():
     """Execute the Kong Consumer Credential module."""
@@ -70,7 +68,7 @@ def main():
     # Create Kong client instance.
     k = KongConsumer(url, auth_user=auth_user, auth_pass=auth_pass)
     kong_status_check(k, ansible_module)
-    kong_version_check(k, ansible_module, MIN_VERSION)
+    kong_version_check(k, ansible_module)
 
     # Default return values
     changed = False

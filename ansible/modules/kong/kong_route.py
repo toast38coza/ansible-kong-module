@@ -1,7 +1,7 @@
 """
 ansible.modules.kong.kong_route performs Route operations on the Kong Admin API.
 
-:authors: Timo Beckers
+:authors: Timo Beckers, Roman Komkov
 :license: MIT
 """
 from ansible.module_utils.basic import AnsibleModule
@@ -34,8 +34,6 @@ EXAMPLES = '''
     name: mockbin_com
     state: absent
 '''
-
-MIN_VERSION = '1.0.0'
 
 
 def main():
@@ -107,7 +105,7 @@ def main():
     # Create Kong client instance.
     k = KongRoute(url, auth_user=auth_user, auth_pass=auth_pass)
     kong_status_check(k, ansible_module)
-    kong_version_check(k, ansible_module, MIN_VERSION)
+    kong_version_check(k, ansible_module)
 
     # Default return values
     changed = False

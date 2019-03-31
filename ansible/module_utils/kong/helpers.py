@@ -1,5 +1,7 @@
 from distutils.version import StrictVersion
 
+MIN_VERSION = '1.0.0'
+
 
 def params_fields_lookup(amod, fields):
     """
@@ -67,14 +69,12 @@ def kong_status_check(kong, amod):
     return True
 
 
-def kong_version_check(kong, amod, version):
+def kong_version_check(kong, amod):
     """
     Failure wrapper around the Kong version check. Calls warn() on the
     Ansible module if the remote endpoint doesn't meet the module's minimum version.
     :param kong: an initialized, configured Kong API object
     :type kong: Kong
-    :param version: the minimum version supported by the Ansible module
-    :type version: str
     :param amod: the Ansible module object
     :type amod: AnsibleModule
     :return: remote endpoint meets minimum version
@@ -82,9 +82,9 @@ def kong_version_check(kong, amod, version):
     """
     kong_version = kong.version
 
-    if not version_compare(kong_version, version):
+    if not version_compare(kong_version, MIN_VERSION):
         amod.warn('Module supports Kong {} and up (found {})'.format(
-            version, kong_version))
+            MIN_VERSION, kong_version))
         return False
 
     return True

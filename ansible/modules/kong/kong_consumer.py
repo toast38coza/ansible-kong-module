@@ -40,8 +40,6 @@ EXAMPLES = '''
     state: absent
 '''
 
-MIN_VERSION = '0.14.0'
-
 
 def main():
     """Execute the Kong Consumer module."""
@@ -78,7 +76,7 @@ def main():
     # Create Kong client instance
     k = KongConsumer(url, auth_user=auth_user, auth_pass=auth_pass)
     kong_status_check(k, ansible_module)
-    kong_version_check(k, ansible_module, MIN_VERSION)
+    kong_version_check(k, ansible_module)
 
     # Default return values
     changed = False

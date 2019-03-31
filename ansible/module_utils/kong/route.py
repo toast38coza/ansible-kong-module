@@ -1,7 +1,7 @@
 """
 ansible.module_utils.kong.route implements Route operations on the Kong Admin API.
 
-:authors: Timo Beckers
+:authors: Timo Beckers, Roman Komkov
 :license: MIT
 """
 import uuid
