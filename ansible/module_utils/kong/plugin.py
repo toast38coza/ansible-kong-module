@@ -109,21 +109,21 @@ class KongPlugin(KongRoute, KongConsumer, Kong):
                 continue
 
             # Require the Plugin's consumer to be set if consumer is provided.
-            if (p_consumer is None) != (consumer_id is None):
+            if bool(p_consumer) != bool(consumer_id):
                 continue
             # Require the Plugin's consumer ID to match if given.
             if p_consumer and p_consumer.get('id') != consumer_id:
                 continue
 
             # Require the Plugin's service to be set if service is provided.
-            if (p_service is None) != (service_id is None):
+            if bool(p_service) != bool(service_id):
                 continue
             # Require the Plugin's service ID to match if given.
             if p_service and p_service.get('id') != service_id:
                 continue
 
             # Require the Plugin's route to be set if route is provided.
-            if (p_route is None) != (route_id is None):
+            if bool(p_route) != bool(route_id):
                 continue
             # Require the Plugin's route ID to match if given.
             if p_route and p_route.get('id') != route_id:
@@ -216,7 +216,7 @@ class KongPlugin(KongRoute, KongConsumer, Kong):
                               route_name=route_name, consumer_name=consumer_name)
 
         if len(p) > 1:
-            raise ValueError("Found multiple Plugin records for name: '{}', service: '{}', route: '{}', consumer: '{}'".
+            raise ValueError("Multiple Plugin records for name: '{}', service: '{}', route: '{}', consumer: '{}'".
                              format(name, service_name, route_name, consumer_name))
 
         if p:
