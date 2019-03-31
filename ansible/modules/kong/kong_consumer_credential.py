@@ -92,12 +92,11 @@ def main():
 
     if len(cq) > 1:
         ansible_module.fail_json(
-            msg='Got multiple results for credential query.', results=cq)
+            msg='Multiple results for credential query', results=cq)
 
-    # Ensure the Consumer Plugins is configured
+    # Ensure the credential is configured.
     if state == 'present':
         if cq:
-            # Only make changes when Ansible is not run in check mode
             if not ansible_module.check_mode:
                 try:
                     resp = k.credential_apply(

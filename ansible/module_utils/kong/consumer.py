@@ -31,6 +31,22 @@ class KongConsumer(Kong):
         """
         return self._get_multipart('consumers')
 
+    def consumer_get(self, idname):
+        """
+        Get the consumer based on its unique name or id.
+
+        :param idname: name or id
+        :type idname: str
+        :return: None or the Consumer's info
+        :rtype: dict
+        """
+        try:
+            r = self._get(['consumers', idname])
+        except requests.HTTPError:
+            return None
+        else:
+            return r
+
     def consumer_query(self, consumer_id=None, custom_id=None, username=None):
         """
         Query Kong for a consumer matching the given properties.
@@ -67,22 +83,6 @@ class KongConsumer(Kong):
 
         # Can raise requests.HTTPError
         return self.consumer_list()
-
-    def consumer_get(self, idname):
-        """
-        Get the consumer based on its unique name or id.
-
-        :param idname: name or id
-        :type idname: str
-        :return: None or the Consumer's info
-        :rtype: dict
-        """
-        try:
-            r = self._get(['consumers', idname])
-        except requests.HTTPError:
-            return None
-        else:
-            return r
 
     def consumer_apply(self, username=None, custom_id=None):
         """

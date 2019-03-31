@@ -13,18 +13,17 @@ short_description: Configure a Kong Service object.
 '''
 
 EXAMPLES = '''
-- name: Configure an Service
+- name: Configure a Service
   kong_service:
     kong_admin_uri: http://localhost:8001
-    name: Mockbin
+    name: mockbin
     protocol: https
     host: mockbin.com
-    state: present
 
-- name: Delete an API
+- name: Delete a Service
   kong_api:
     kong_admin_uri: http://localhost:8001
-    name: Mockbin
+    name: mockbin
     state: absent
 '''
 
