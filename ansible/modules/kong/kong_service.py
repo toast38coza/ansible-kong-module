@@ -1,3 +1,9 @@
+"""
+ansible.modules.kong.kong_service performs Service operations on the Kong Admin API.
+
+:authors: Timo Beckers, Roman Komkov
+:license: MIT
+"""
 from ansible.module_utils.basic import AnsibleModule
 from ansible.module_utils.dotdiff import dotdiff
 from ansible.module_utils.kong.helpers import (kong_status_check,
@@ -27,10 +33,9 @@ EXAMPLES = '''
     state: absent
 '''
 
-MIN_VERSION = '0.14.0'
-
 
 def main():
+    """Execute the Kong Service module."""
     ansible_module = AnsibleModule(
         argument_spec=dict(
             kong_admin_uri=dict(required=True, type='str'),
@@ -55,10 +60,6 @@ def main():
         supports_check_mode=True
     )
 
-    # Initialize output dictionary
-    result = {}
-
-    # Kong 0.14.x
     api_fields = [
         'name',
         'protocol',
@@ -83,38 +84,30 @@ def main():
     state = ansible_module.params['state']
     name = ansible_module.params['name']
 
-    # Create KongService client instance
+    # Create Kong client instance.
     k = KongService(url, auth_user=auth_user, auth_pass=auth_pass)
-
-    # Contact Kong status endpoint
     kong_status_check(k, ansible_module)
+    kong_version_check(k, ansible_module)
 
-    # Kong API version compatibility check
-    kong_version_check(k, ansible_module, MIN_VERSION)
-
-    # Default return values
+    # Default return values.
+    result = {}
     changed = False
     resp = ''
 
-    # Ensure the service is registered in Kong
+    # Ensure the Service is configured.
     if state == "present":
 
-        # Check if the service exists
         orig = k.service_get(name)
         if orig is not None:
-
-            # Diff the remote API object against the target data if it already exists
+            # Diff the existing object against the target data if it already exists.
             servicediff = dotdiff(orig, data)
-
-            # Set changed flag if there's a diff
             if servicediff:
-                # Log modified state and diff result
                 changed = True
                 result['state'] = 'modified'
                 result['diff'] = [dict(prepared=render_list(servicediff))]
 
         else:
-            # We're inserting a new service, set changed
+            # Insert a new Service, set changed.
             changed = True
             result['state'] = 'created'
             result['diff'] = dict(
@@ -122,22 +115,17 @@ def main():
                 after_header=name, after=data
             )
 
-        # Only make changes when Ansible is not run in check mode
         if not ansible_module.check_mode and changed:
             try:
                 resp = k.service_apply(**data)
             except Exception as e:
-                app_err = "Service configuration rejected by Kong: '{}'. " \
-                          "Please check configuration of the service you are trying to configure."
-                ansible_module.fail_json(msg=app_err.format(e))
+                ansible_module.fail_json(
+                    msg='Error applying Service: {}'.format(e))
 
-    # Ensure the service is deleted
+    # Ensure the Service is deleted.
     if state == "absent":
 
-        # Check if the service exists
         orig = k.service_get(name)
-
-        # Predict a change if the service exists
         if orig:
             changed = True
             result['state'] = 'deleted'
@@ -146,25 +134,19 @@ def main():
                 after_header='<deleted>', after='\n'
             )
 
-        # Only make changes when Ansible is not run in check mode
         if not ansible_module.check_mode and orig:
-            # Issue delete call to the Kong service
             try:
                 resp = k.service_delete(name)
             except Exception as e:
                 ansible_module.fail_json(
-                    msg='Error deleting service: {}'.format(e))
+                    msg='Error deleting Service: {}'.format(e))
+
+    # Prepare module output
+    result.update(changed=changed)
 
     # Pass through the API response if non-empty
     if resp:
         result['response'] = resp
-
-    # Prepare module output
-    result.update(
-        dict(
-            changed=changed,
-        )
-    )
 
     ansible_module.exit_json(**result)
 
