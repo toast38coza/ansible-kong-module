@@ -20,7 +20,20 @@ def params_fields_lookup(amod, fields):
     :return: dictionary of queried values, default None
     :rtype: dict
     """
-    return {x: amod.params[x] for x in fields if amod.params.get(x, None) is not None}
+    out = {}
+    for x in fields:
+        if amod.params.get(x, None) is not None:
+            # Re-write a list with a single empty string as an empty list.
+            # This is to work around list module parameters that receive the
+            # 'omit' value, causing Ansible to set a list with a single empty
+            # string.
+            if amod.params[x] == ['']:
+                out[x] = []
+                continue
+
+            out[x] = amod.params[x]
+
+    return out
 
 
 def render_list(inlist):
@@ -36,6 +49,40 @@ def render_list(inlist):
         return ''
 
     return '\n{}\n\n'.format('\n'.join([str(x) for x in inlist]))
+
+
+def sorted_dict_list(inlist):
+    """
+    Return a sorted set of tuples from a list of non-nested dicts.
+
+    d.items() returns a list of k, v tuples of the dictionary's items.
+    That list of tuples is sorted for stability between runs.
+    tuple() converts the list of tuples to a tuple of tuples.
+    Finally, set() ensures all entries are unique and makes the return
+    value comparable.
+
+    :param inlist: list of non-nested dictionaries
+    :type inlist: list
+    :return: set of sorted tuples of the list's dicts
+    """
+    if not isinstance(inlist, list):
+        raise ValueError('input value is not a list')
+
+    for i in inlist:
+
+        # Ignore empty strings caused by setting omit on a module parameter.
+        if not i:
+            continue
+
+        if not isinstance(i, dict):
+            raise ValueError(
+                "input list is not a list of dicts (got {}): '{}'".format(type(i), inlist))
+
+        for v in i.values():
+            if isinstance(v, dict):
+                raise ValueError('input list contains a nested dict')
+
+    return set(tuple(sorted(d.items())) for d in inlist if d)
 
 
 def kong_status_check(kong, amod):
