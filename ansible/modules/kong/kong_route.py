@@ -4,6 +4,7 @@ ansible.modules.kong.kong_route performs Route operations on the Kong Admin API.
 :authors: Timo Beckers, Roman Komkov
 :license: MIT
 """
+import requests
 from ansible.module_utils.basic import AnsibleModule
 from ansible.module_utils.dotdiff import dotdiff
 from ansible.module_utils.kong.helpers import (kong_status_check,
@@ -122,12 +123,19 @@ def main():
         try:
             # Check if a Route with these parameters already exists
             # without including the route name.
-            orig = k.route_query(service, protocols=data['protocols'],
-                                 hosts=data['hosts'], paths=data['paths'], methods=data['methods'],
-                                 snis=data['snis'], sources=data['sources'], destinations=data['destinations'])
-        except Exception as e:
+            rq = k.route_query(service, protocols=data['protocols'],
+                               hosts=data['hosts'], paths=data['paths'], methods=data['methods'],
+                               snis=data['snis'], sources=data['sources'], destinations=data['destinations'])
+        except requests.HTTPError as e:
             ansible_module.fail_json(
                 msg="Error querying Route: '{}'".format(e))
+
+        if len(rq) > 1:
+            ansible_module.fail_json(
+                msg='Multiple results for Route query', results=rq)
+
+        if rq:
+            orig = rq[0]
 
     # Ensure the Route is configured.
     if state == "present":
