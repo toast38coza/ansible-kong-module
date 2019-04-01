@@ -8,6 +8,7 @@ import uuid
 
 import requests
 from ansible.module_utils.kong import Kong
+from ansible.module_utils.kong.helpers import sorted_dict_list
 from ansible.module_utils.kong.service import KongService
 
 
@@ -81,8 +82,9 @@ class KongRoute(KongService, Kong):
                 set(r.get('paths', [])) == set(paths) and
                 set(r.get('methods', [])) == set(methods) and
                 set(r.get('snis', [])) == set(snis) and
-                set(r.get('sources', [])) == set(sources) and
-                set(r.get('destinations', [])) == set(destinations)
+                sorted_dict_list(r.get('sources', [])) == sorted_dict_list(sources) and
+                sorted_dict_list(r.get('destinations', [])) ==
+                sorted_dict_list(destinations)
                 ]
 
     def route_apply(self, service_idname, name=None, protocols=[],
