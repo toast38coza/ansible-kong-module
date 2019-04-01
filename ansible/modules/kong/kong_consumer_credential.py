@@ -4,6 +4,7 @@ ansible.modules.kong.kong_consumer_credential performs Consumer Credential opera
 :authors: Timo Beckers
 :license: MIT
 """
+import requests
 from ansible.module_utils.basic import AnsibleModule
 from ansible.module_utils.dotdiff import dotdiff
 from ansible.module_utils.kong.consumer import KongConsumer
@@ -84,7 +85,7 @@ def main():
             ansible_module.exit_json(msg=str(e))
 
         ansible_module.fail_json(msg=str(e))
-    except Exception as e:
+    except requests.HTTPError as e:
         ansible_module.fail_json(
             msg="Error querying credential: '{}'.".format(e))
 
@@ -99,7 +100,7 @@ def main():
                 try:
                     resp = k.credential_apply(
                         username, auth_type, config=config)
-                except Exception as e:
+                except requests.HTTPError as e:
                     ansible_module.fail_json(msg=str(e))
 
                 orig = cq[0]
@@ -131,7 +132,7 @@ def main():
                     resp = k.credential_apply(
                         username, auth_type, config=config)
 
-                except Exception as e:
+                except requests.HTTPError as e:
                     ansible_module.fail_json(msg=str(e))
 
     # Ensure the Consumer is deleted
@@ -155,7 +156,7 @@ def main():
             try:
                 resp = k.credential_delete(
                     consumer_idname=username, auth_type=auth_type, config=config)
-            except Exception as e:
+            except requests.HTTPError as e:
                 ansible_module.fail_json(msg=str(e))
 
     # Pass through the API response if non-empty

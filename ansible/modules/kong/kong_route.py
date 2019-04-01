@@ -159,7 +159,7 @@ def main():
         if not ansible_module.check_mode and changed:
             try:
                 resp = k.route_apply(service, **data)
-            except Exception as e:
+            except requests.HTTPError as e:
                 ansible_module.fail_json(
                     msg='Error applying Route: {}'.format(e))
 
@@ -177,7 +177,7 @@ def main():
             if not ansible_module.check_mode:
                 try:
                     resp = k.route_delete(orig['id'])
-                except Exception as e:
+                except requests.HTTPError as e:
                     ansible_module.fail_json(
                         msg='Error deleting Route: {}'.format(e))
 

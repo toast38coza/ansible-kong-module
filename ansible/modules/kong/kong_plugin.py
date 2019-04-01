@@ -71,7 +71,7 @@ def main():
     try:
         pq = k.plugin_query(name=name, service_name=service,
                             route_name=route, consumer_name=consumer)
-    except Exception as e:
+    except requests.HTTPError as e:
         ansible_module.fail_json(
             msg="Error querying plugin: '{}'.".format(e))
 

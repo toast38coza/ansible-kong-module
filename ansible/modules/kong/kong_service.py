@@ -118,7 +118,7 @@ def main():
         if not ansible_module.check_mode and changed:
             try:
                 resp = k.service_apply(**data)
-            except Exception as e:
+            except requests.HTTPError as e:
                 ansible_module.fail_json(
                     msg='Error applying Service: {}'.format(e))
 
@@ -137,7 +137,7 @@ def main():
         if not ansible_module.check_mode and orig:
             try:
                 resp = k.service_delete(name)
-            except Exception as e:
+            except requests.HTTPError as e:
                 ansible_module.fail_json(
                     msg='Error deleting Service: {}'.format(e))
 

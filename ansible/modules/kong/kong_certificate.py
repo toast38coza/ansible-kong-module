@@ -4,6 +4,7 @@ ansible.modules.kong.kong_certificate performs Certificate operations on the Kon
 :authors: Timo Beckers, Roman Komkov
 :license: MIT
 """
+import requests
 from ansible.module_utils.basic import AnsibleModule
 from ansible.module_utils.dotdiff import dotdiff
 from ansible.module_utils.kong.certificate import KongCertificate
@@ -105,7 +106,7 @@ def main():
         if not ansible_module.check_mode and changed:
             try:
                 resp = k.certificate_apply(**data)
-            except Exception as e:
+            except requests.HTTPError as e:
                 ansible_module.fail_json(
                     msg='Error applying Certificate: {}'.format(e))
 
@@ -120,7 +121,7 @@ def main():
         if not ansible_module.check_mode and orig:
             try:
                 resp = k.certificate_delete(sni)
-            except Exception as e:
+            except requests.HTTPError as e:
                 ansible_module.fail_json(
                     msg='Error deleting Certificate: {}'.format(e))
 

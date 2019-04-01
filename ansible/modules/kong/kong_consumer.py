@@ -113,7 +113,7 @@ def main():
             if not ansible_module.check_mode:
                 try:
                     resp = k.consumer_apply(**data)
-                except Exception as e:
+                except requests.HTTPError as e:
                     ansible_module.fail_json(msg=str(e))
 
     if state == 'absent':
@@ -132,7 +132,7 @@ def main():
             if not ansible_module.check_mode and orig:
                 try:
                     resp = k.consumer_delete(username)
-                except Exception as e:
+                except requests.HTTPError as e:
                     ansible_module.fail_json(
                         msg='Error deleting Consumer: {}'.format(e))
 
