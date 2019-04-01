@@ -1,21 +1,44 @@
+"""
+ansible.module_utils.kong implements the HTTP calls to the Kong Admin API.
+
+:authors: Timo Beckers
+:license: MIT
+"""
+
 import requests
+from ansible.module_utils.kong.error import raise_for_error
 
 
 class Kong(object):
+    """Kong is a superclass that implements requests to the Kong API."""
 
     # List of API resources the library supports
     resources = [
-        'apis',
-        'certificates',
-        'consumers',
-        'plugins',
-        'routes',
-        'services',
         'status',
+        'services',
+        'routes',
+        'plugins',
+        'consumers',
+        'certificates',
     ]
 
     def __init__(self, base_url, auth_user=None, auth_pass=None, ping=True):
+        """
+        Initialize a Kong object.
 
+        Requires both `auth_user` and `auth_pass` to be set for the API client
+        to perform password authentication to the Kong API.
+
+        :param base_url: base URL of the Kong API endpoint
+        :type base_url: str
+        :param auth_user: user for basic authentication to the admin API
+        :type auth_user: str
+        :param auth_pass: password for basic authentication to the admin API
+        :type auth_pass: str
+        :param ping: whether or not to call /status on the admin API upon init
+        :type ping: bool
+        :return: None
+        """
         self.base_url = base_url
 
         self.auth = None
@@ -28,26 +51,84 @@ class Kong(object):
         if ping and self.status:
             return
 
-    def _get(self, uri, params=None):
+    def _get(self, uri):
         """
-        Execute GET request using the resource and action.
+        Execute a GET request on the given URI.
+
+        The base URL gets automatically appended.
+
+        :param uri: the URI of the request
+        :type uri: str
+        :return: JSON-parsed payload of the request
+        :rtype: dict
         """
         url = self._url(uri)
 
-        r = requests.get(url, params=params, auth=self.auth)
+        r = requests.get(url, auth=self.auth)
 
         # Expect 200 OK
-        r.raise_for_status()
+        raise_for_error(r)
 
         return r.json()
 
+    def _get_multipart(self, uri):
+        """
+        Execute a multipart GET request on the given URI.
+
+        Follows any URLs sent in the 'next' field of the response.
+        Returns a joined list of objects in the 'data' fields of all requests.
+
+        :param uri: the URI of the request
+        :type uri: str
+        :return: JSON-parsed payload of the request
+        :rtype: dict
+        """
+        # The initial request does not have a hostname. Payload URLs sent
+        # in the 'next' key in the response are fully qualified.
+        url = self._url(uri)
+
+        out = []
+
+        while url is not None:
+
+            r = requests.get(url, auth=self.auth)
+            raise_for_error(r)
+
+            p = r.json()
+
+            # Check if the response contains 'data' key.
+            data = p.get('data', None)
+            if data is None:
+                raise Exception(
+                    "Expected 'data' key in multipart response: {}".format(p))
+
+            # Extend output list with data objects.
+            out.extend(data)
+
+            # Set the URL for the next request.
+            url = p.get('next', None)
+
+        return out
+
     def _post(self, uri, data=None):
         """
-        Execute POST request using the resource, action and payload.
+        Execute a POST request on the given URI.
+
+        The endpoint must return 201 Created, or an exception is raised.
+        Any Kong schema errors are raised as KongError.
+
+        :param uri: the URI of the request
+        :type uri: str
+        :param data: dictionary to send as JSON-encoded body
+        :type data: dict
+        :return: JSON-parsed payload of the request
+        :rtype: dict
         """
         url = self._url(uri)
 
         r = requests.post(url, json=data, auth=self.auth)
+
+        raise_for_error(r)
 
         if r.status_code == requests.codes['created']:
             return r.json()
@@ -57,41 +138,68 @@ class Kong(object):
 
     def _patch(self, uri, data=None):
         """
-        Execute PATCH request using the resource, action and payload.
+        Execute a PATCH request on the given URI.
+
+        Any Kong schema errors are raised as KongError.
+
+        :param uri: the URI of the request
+        :type uri: str
+        :param data: dictionary to send as JSON-encoded body
+        :type data: dict
+        :return: JSON-parsed payload of the request
+        :rtype: dict
         """
         url = self._url(uri)
 
         r = requests.patch(url, json=data, auth=self.auth)
 
-        # Expect 200 OK
-        r.raise_for_status()
+        raise_for_error(r)
 
         return r.json()
 
     def _put(self, uri, data=None):
         """
-        Execute PUT request using the resource, action and payload.
+        Execute a PUT request using the given URI.
+
+        The endpoint must return 201 Created, or an exception is raised.
+        Any Kong schema errors are raised as KongError.
+
+        :param uri: the URI of the request
+        :type uri: str
+        :param data: dictionary to send as JSON-encoded body
+        :type data: dict
+        :return: JSON-parsed payload of the request
+        :rtype: dict
         """
         url = self._url(uri)
 
         r = requests.put(url, data=data, auth=self.auth)
 
+        raise_for_error(r)
+
         if r.status_code == requests.codes['created']:
             return True
-
-        # Raise if status is not 200 OK
-        r.raise_for_status()
 
         # Report no change
         return False
 
     def _delete(self, uri):
         """
-        Execute DELETE request using the resource and action.
+        Execute a DELETE request using the given URI.
+
+        The endpoint must return 204 No Content, or an exception is raised.
+        Any Kong schema errors are raised as KongError.
+
+        :param uri: the URI of the request
+        :type uri: str
+        :return: True
+        :rtype: bool
         """
         url = self._url(uri)
 
         r = requests.delete(url, auth=self.auth)
+
+        raise_for_error(r)
 
         if r.status_code != requests.codes['no_content']:
             raise Exception('Unexpected HTTP code {}, expected {}'
@@ -101,10 +209,16 @@ class Kong(object):
 
     def _url(self, *args):
         """
-        Assemble a URL based on the base_url with a URI joined by slashes.
-        Trims None entries from args.
-        """
+        Assemble a fully-qualified URL based on Kong.base_url and URI segments.
 
+        The first element in the list must appear in Kong.resources.
+        None entries are trimmed from args.
+
+        :param *args: list of URI segments
+        :type *args: list
+        :return: the base_url extended by the given URI segments
+        :rtype str
+        """
         # Tolerate the first argument being a list, step into it
         if isinstance(args[0], (list, tuple)):
             args = args[0]
@@ -129,20 +243,21 @@ class Kong(object):
 
     @property
     def version(self):
+        """Get the version of the connected Kong instance."""
         r = requests.get(self.base_url)
-
         r.raise_for_status()
 
         return r.json().get('version', None)
 
     @property
     def status(self):
-        url = self._url('status')
-        r = requests.get(url)
+        """Call the /status endpoint on the connected Kong instance."""
+        r = requests.get(self._url('status'))
         r.raise_for_status()
 
         return r.json()
 
     @property
     def healthy(self):
+        """Kong database reachability health check."""
         return self.status.get('database', {}).get('reachable', False)

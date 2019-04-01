@@ -1,7 +1,14 @@
+"""
+ansible.modules.kong.kong_plugin performs Plugin operations on the Kong Admin API.
+
+:authors: Timo Beckers
+:license: MIT
+"""
 import requests
 from ansible.module_utils.basic import AnsibleModule
 from ansible.module_utils.dotdiff import dotdiff
-from ansible.module_utils.kong.helpers import *
+from ansible.module_utils.kong.helpers import (kong_status_check,
+                                               kong_version_check, render_list)
 from ansible.module_utils.kong.plugin import KongPlugin
 
 DOCUMENTATION = '''
@@ -18,10 +25,9 @@ EXAMPLES = '''
     service: mockbin
 '''
 
-MIN_VERSION = '0.14.0'
-
 
 def main():
+    """Execute the Kong Plugin module."""
     ansible_module = AnsibleModule(
         argument_spec=dict(
             kong_admin_uri=dict(required=True, type='str'),
@@ -29,7 +35,7 @@ def main():
             kong_admin_password=dict(required=False, type='str', no_log=True),
             name=dict(required=True, type='str'),
             service=dict(required=False, type='str'),
-            route=dict(required=False, type='dict'),
+            route=dict(required=False, type='str'),
             consumer=dict(required=False, type='str'),
             config=dict(required=False, type='dict', default=dict()),
             state=dict(required=False, default="present",
@@ -37,9 +43,6 @@ def main():
         ),
         supports_check_mode=True
     )
-
-    # Initialize output dictionary
-    result = {}
 
     # Admin endpoint & auth
     url = ansible_module.params['kong_admin_uri']
@@ -54,78 +57,66 @@ def main():
     consumer = ansible_module.params['consumer']
     config = ansible_module.params['config']
 
-    # Convert consumer_name to bool if bool conversion evals to False
-    # if consumer_name == 'False':
-    # consumer_name = False
-
     # Create KongAPI client instance
     k = KongPlugin(url, auth_user=auth_user, auth_pass=auth_pass)
-
-    # Contact Kong status endpoint
     kong_status_check(k, ansible_module)
-
-    # Kong API version compatibility check
-    kong_version_check(k, ansible_module, MIN_VERSION)
+    kong_version_check(k, ansible_module)
 
     # Default return values
     changed = False
     resp = ''
+    diff = {}
+    result = {}
 
     try:
-        # Check if the Plugin is already present
         pq = k.plugin_query(name=name, service_name=service,
-                            route_attrs=route, consumer_name=consumer)
-    except Exception as e:
+                            route_name=route, consumer_name=consumer)
+    except requests.HTTPError as e:
         ansible_module.fail_json(
             msg="Error querying plugin: '{}'.".format(e))
 
     if len(pq) > 1:
-        ansible_module.fail_json(
-            msg='Got multiple results for Plugin query name: {}, service: {}, route: {}, consumer: {}'.
-            format(name, service, route, consumer))
+        ansible_module.fail_json(msg='Multiple results for Plugin query',
+                                 results=pq, name=name, service=service, route=route, consumer=consumer)
 
-    # Ensure the Plugin is installed on Kong
+    # Ensure the Plugin is configured.
     if state == "present":
         if pq:
             # Extract the remote Plugin object into orig
             orig = pq[0]
 
-            # Diff the remote Plugin object against the target data if it already exists
-            plugindiff = dotdiff(orig.get('config'), config)
-
-            # Set changed flag if there's a diff
-            if plugindiff:
-                # Log modified state and diff result
+            # Diff the existing Plugin against the target data if it already exists.
+            plugin_diff = dotdiff(orig.get('config'), config)
+            if plugin_diff:
+                # Log modified state and diff result.
                 changed = True
                 result['state'] = 'modified'
-                result['diff'] = [dict(prepared=render_list(plugindiff))]
+                diff = dict(prepared=render_list(plugin_diff))
 
         else:
-            # We're inserting a new Plugin, set changed
+            # Configure a new Plugin.
             changed = True
             result['state'] = 'created'
-            result['diff'] = dict(
+            diff = dict(
                 before_header='<undefined>', before='<undefined>\n',
                 after_header=name, after={
                     'name': name,
                     'service': service,
                     'route': route,
                     'consumer': consumer,
+                    'config': config,
                     'state': 'created',
-                    'config': config
                 }
             )
 
-        # Only make changes when Ansible is not run in check mode
         if not ansible_module.check_mode and changed:
             try:
                 resp = k.plugin_apply(name=name, config=config, service_name=service,
-                                      route_attrs=route, consumer_name=consumer)
+                                      route_name=route, consumer_name=consumer)
             except requests.HTTPError as e:
-                ansible_module.fail_json(msg='Plugin configuration rejected by Kong.', name=name, config=config,
-                                         service=service, route=route, consumer=consumer, response=e.response._content)
+                ansible_module.fail_json(msg=str(e))
 
-    # Delete the Plugin if it exists
+    # Ensure the Plugin is deleted.
     if state == "absent" and pq:
 
         # Check if the API exists
@@ -134,32 +125,28 @@ def main():
         # Predict a change if the Plugin exists
         changed = True
         result['state'] = 'deleted'
-        result['diff'] = dict(
+        diff = dict(
             before_header=name, before=orig,
             after_header='<deleted>', after='\n'
         )
 
-        # Only make changes when Ansible is not run in check mode
         if not ansible_module.check_mode and orig:
-            # Issue delete call to the Kong API
             try:
-                resp = k.plugin_delete(name, service_name=service, route_attrs=route,
+                resp = k.plugin_delete(name, service_name=service, route_name=route,
                                        consumer_name=consumer)
             except requests.HTTPError as e:
                 err_msg = "Error deleting Plugin."
                 ansible_module.fail_json(
                     msg=err_msg, response=e.response._content)
 
-    # Pass through the API response if non-empty
+    # Prepare module output.
+    result.update(changed=changed)
+
     if resp:
         result['response'] = resp
 
-    # Prepare module output
-    result.update(
-        dict(
-            changed=changed,
-        )
-    )
+    if diff:
+        result['diff'] = diff
 
     ansible_module.exit_json(**result)
 

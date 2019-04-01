@@ -1,4 +1,12 @@
+"""
+ansible.module_utils.kong.helpers is a helpers package for the Kong Admin API client.
+
+:authors: Timo Beckers
+:license: MIT
+"""
 from distutils.version import StrictVersion
+
+MIN_VERSION = '1.0.0'
 
 
 def params_fields_lookup(amod, fields):
@@ -12,34 +20,30 @@ def params_fields_lookup(amod, fields):
     :return: dictionary of queried values, default None
     :rtype: dict
     """
+    out = {}
+    for x in fields:
+        if amod.params.get(x, None) is not None:
+            # Re-write a list with a single empty string as an empty list.
+            # This is to work around list module parameters that receive the
+            # 'omit' value, causing Ansible to set a list with a single empty
+            # string.
+            if amod.params[x] == ['']:
+                out[x] = []
+                continue
 
-    return {x: amod.params[x] for x in fields if amod.params.get(x, None) is not None}
+            out[x] = amod.params[x]
 
-
-def version_compare(api_version, supported_version):
-    """
-    Simple implementation of an equal version compare.
-    Returns False if major versions differ.
-
-    :param api_version: version of the remote API
-    :type api_version: str
-    :param supported_version: version the client library supports
-    :type supported_version: str
-    :return: whether the version matches
-    :rtype: bool
-    """
-
-    return StrictVersion(api_version) >= StrictVersion(supported_version)
+    return out
 
 
 def render_list(inlist):
     """
     Convert a list to a string with newlines.
+
     :param inlist: The input list
     :type inlist: list
     :return: the list converted to a string
     """
-
     # Return empty string to avoid returning unnecessary newlines
     if not inlist:
         return ''
@@ -47,9 +51,44 @@ def render_list(inlist):
     return '\n{}\n\n'.format('\n'.join([str(x) for x in inlist]))
 
 
+def sorted_dict_list(inlist):
+    """
+    Return a sorted set of tuples from a list of non-nested dicts.
+
+    d.items() returns a list of k, v tuples of the dictionary's items.
+    That list of tuples is sorted for stability between runs.
+    tuple() converts the list of tuples to a tuple of tuples.
+    Finally, set() ensures all entries are unique and makes the return
+    value comparable.
+
+    :param inlist: list of non-nested dictionaries
+    :type inlist: list
+    :return: set of sorted tuples of the list's dicts
+    """
+    if not isinstance(inlist, list):
+        raise ValueError('input value is not a list')
+
+    for i in inlist:
+
+        # Ignore empty strings caused by setting omit on a module parameter.
+        if not i:
+            continue
+
+        if not isinstance(i, dict):
+            raise ValueError(
+                "input list is not a list of dicts (got {}): '{}'".format(type(i), inlist))
+
+        for v in i.values():
+            if isinstance(v, dict):
+                raise ValueError('input list contains a nested dict')
+
+    return set(tuple(sorted(d.items())) for d in inlist if d)
+
+
 def kong_status_check(kong, amod):
     """
-    Failure wrapper around the Kong status check. Calls fail_json on the Ansible module
+    Wrap the Kong status check with fail_json.
+
     :param kong: an initialized, configured Kong API object
     :type kong: Kong
     :param amod: the Ansible module object
@@ -67,14 +106,15 @@ def kong_status_check(kong, amod):
     return True
 
 
-def kong_version_check(kong, amod, version):
+def kong_version_check(kong, amod):
     """
-    Failure wrapper around the Kong version check. Calls warn() on the
-    Ansible module if the remote endpoint doesn't meet the module's minimum version.
+    Wrap the Kong version check with warn.
+
+    Calls warn() on the Ansible module if the remote endpoint
+    doesn't meet the module's minimum version.
+
     :param kong: an initialized, configured Kong API object
     :type kong: Kong
-    :param version: the minimum version supported by the Ansible module
-    :type version: str
     :param amod: the Ansible module object
     :type amod: AnsibleModule
     :return: remote endpoint meets minimum version
@@ -82,9 +122,9 @@ def kong_version_check(kong, amod, version):
     """
     kong_version = kong.version
 
-    if not version_compare(kong_version, version):
+    if not StrictVersion(kong_version) >= StrictVersion(MIN_VERSION):
         amod.warn('Module supports Kong {} and up (found {})'.format(
-            version, kong_version))
+            MIN_VERSION, kong_version))
         return False
 
     return True
