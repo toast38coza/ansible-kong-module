@@ -77,13 +77,13 @@ class KongRoute(KongService, Kong):
             raise ValueError("Service '{}' not found".format(service_idname))
 
         return [r for r in self.route_list(service_idname) if
-                set(r.get('protocols', [])) == set(protocols) and
-                set(r.get('hosts', [])) == set(hosts) and
-                set(r.get('paths', [])) == set(paths) and
-                set(r.get('methods', [])) == set(methods) and
-                set(r.get('snis', [])) == set(snis) and
-                sorted_dict_list(r.get('sources', [])) == sorted_dict_list(sources) and
-                sorted_dict_list(r.get('destinations', [])) ==
+                set(r.get('protocols', []) or []) == set(protocols) and
+                set(r.get('hosts', []) or []) == set(hosts) and
+                set(r.get('paths', []) or []) == set(paths) and
+                set(r.get('methods', []) or []) == set(methods) and
+                set(r.get('snis', []) or []) == set(snis) and
+                sorted_dict_list(r.get('sources', []) or []) == sorted_dict_list(sources) and
+                sorted_dict_list(r.get('destinations', []) or []) ==
                 sorted_dict_list(destinations)
                 ]
 
