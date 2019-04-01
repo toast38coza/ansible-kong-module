@@ -1,0 +1,170 @@
+---
+# This playbook attempts to use most of the features of the modules
+# in this repository. It is intended as an integration test of sorts.
+#
+# For a more digestible, documented example, see example.yml.
+- hosts: localhost
+  gather_facts: False
+  vars:
+    kong_admin_uri: "http://localhost:8001"
+    kong_services:
+      - name: httpbin
+        host: httpbin.org
+        routes:
+          # Named http Route
+          - name: root_httpbin
+            hosts:
+              - example.com
+              - localhost
+            paths:
+              - /
+          # Unnamed stream Route
+          - protocols:
+              - tls
+              - tcp
+            snis:
+              - example.com
+            sources:
+              - ip: 127.0.0.1
+                port: 80
+            destinations:
+              - ip: 1.2.3.4
+      - name: ifconfig
+        host: ifconfig.co
+
+    kong_consumers:
+      - username: ansible
+        custom_id: ansible_custom_id
+        credentials:
+          - type: key-auth
+            config:
+              key: "123456"
+          - type: basic-auth
+            config:
+              username: ansible
+              password: baz
+          - type: hmac-auth
+            config:
+              username: alice123
+              secret: asd
+          - type: acls
+            config:
+              group: ansible-group
+          - type: oauth2
+            config:
+              name: Ansible Client
+              client_id: ansible-client-id
+              client_secret: ansible-client-secret
+              redirect_uris:
+                - http://example.com/endpoint/
+          - type: jwt
+            config:
+              key: ansible-jwt-key
+        state: present
+
+    kong_plugins:
+      # Root-level Plugin
+      - name: rate-limiting
+        config:
+          second: 300
+      # Consumer Plugin
+      - name: rate-limiting
+        config:
+          second: 200
+        consumer: ansible
+      # Service Plugin
+      - name: rate-limiting
+        config:
+          second: 300
+        service: httpbin
+      # Service + Route Plugin
+      - name: basic-auth
+        service: httpbin
+        route: root_httpbin
+        config:
+          hide_credentials: true
+      # Service + Route + Consumer Plugin
+      - name: rate-limiting
+        service: httpbin
+        route: root_httpbin
+        consumer: ansible
+        config:
+          second: 500
+
+    kong_certificates:
+      - snis: localhost
+        cert: "{{ lookup('file', 'files/example_com.cert.pem') }}"
+        key: "{{ lookup('file', 'files/example_com.key.pem') }}"
+
+  tasks:
+    - name: Kong Services
+      kong_service:
+        kong_admin_uri: "{{ kong_admin_uri }}"
+        name: "{{ item.name }}"
+        protocol: https
+        host: "{{ item.host }}"
+        state: "{{ item.state|d('present') }}"
+      loop: "{{ kong_services }}"
+      loop_control:
+        label: "{{ item.name }} - {{ item.host }}"
+
+    - name: Kong Routes
+      kong_route:
+        kong_admin_uri: "{{ kong_admin_uri }}"
+        service: "{{ item.0.name }}"
+        name: "{{ item.1.name | d(omit) }}"
+        protocols: "{{ item.1.protocols | d(omit) }}"
+        hosts: "{{ item.1.hosts | d(omit) }}"
+        paths: "{{ item.1.paths | d(omit) }}"
+        snis: "{{ item.1.snis | d(omit) }}"
+        sources: "{{ item.1.sources | d(omit) }}"
+        destinations: "{{ item.1.destinations | d(omit) }}"
+        state: "{{ item.1.state|d('present') }}"
+      loop: "{{ kong_services|subelements('routes', skip_missing=True) }}"
+      when: (item.1.state is not defined) or
+            (item.1.state == 'present')
+      loop_control:
+        label: "{{ item.0.name }} - {{ item.1.hosts | d('<no hosts>') }}:{{ item.1.paths | d('<no paths>') }}"
+
+    - name: Kong Consumers
+      kong_consumer:
+        kong_admin_uri: "{{ kong_admin_uri }}"
+        username: "{{ item.username }}"
+        state: "{{ item.state|d('present') }}"
+        custom_id: "{{ item.custom_id|default(omit) }}"
+      loop: "{{ kong_consumers }}"
+      loop_control:
+        label: "{{ item.username }}"
+
+    - name: Kong Consumer Credentials
+      kong_consumer_credential:
+        kong_admin_uri: "{{ kong_admin_uri }}"
+        username: "{{ item.0.username }}"
+        type: "{{ item.1.type }}"
+        config: "{{ item.1.config }}"
+        state: "{{ item.1.state|d('present') }}"
+      loop: "{{ kong_consumers|subelements('credentials') }}"
+      loop_control:
+        label: "{{ item.0.username }} - {{ item.1.type }}"
+
+    - name: Kong Plugins
+      kong_plugin:
+        kong_admin_uri: "{{ kong_admin_uri }}"
+        name: "{{ item.name }}"
+        service: "{{ item.service | d(omit) }}"
+        route: "{{ item.route | d(omit) }}"
+        consumer: "{{ item.consumer | d(omit) }}"
+        config: "{{ item.config | d(omit) }}"
+        state: "{{ item.state|d('present') }}"
+      loop: "{{ kong_plugins }}"
+
+    - name: Kong Certificates
+      kong_certificate:
+        kong_admin_uri: "{{ kong_admin_uri }}"
+        snis: "{{ item.snis }}"
+        cert: "{{ item.cert }}"
+        key: "{{ item.key }}"
+        state: "{{ item.state|d('present') }}"
+      loop: "{{ kong_certificates }}"
+      loop_control:
+        label: "{{ item.snis }}"
