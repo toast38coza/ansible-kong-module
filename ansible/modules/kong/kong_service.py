@@ -7,7 +7,6 @@ ansible.modules.kong.kong_service performs Service operations on the Kong Admin 
 from ansible.module_utils.basic import AnsibleModule
 from ansible.module_utils.dotdiff import dotdiff
 from ansible.module_utils.kong.helpers import (kong_status_check,
-                                               kong_version_check,
                                                params_fields_lookup,
                                                render_list)
 from ansible.module_utils.kong.service import KongService
@@ -87,7 +86,6 @@ def main():
     # Create Kong client instance.
     k = KongService(url, auth_user=auth_user, auth_pass=auth_pass)
     kong_status_check(k, ansible_module)
-    kong_version_check(k, ansible_module)
 
     # Default return values.
     result = {}

@@ -104,27 +104,3 @@ def kong_status_check(kong, amod):
         amod.fail_json(msg='Unable to perform Kong status call: {}'.format(e))
 
     return True
-
-
-def kong_version_check(kong, amod):
-    """
-    Wrap the Kong version check with warn.
-
-    Calls warn() on the Ansible module if the remote endpoint
-    doesn't meet the module's minimum version.
-
-    :param kong: an initialized, configured Kong API object
-    :type kong: Kong
-    :param amod: the Ansible module object
-    :type amod: AnsibleModule
-    :return: remote endpoint meets minimum version
-    :rtype: bool
-    """
-    kong_version = kong.version
-
-    if not StrictVersion(kong_version) >= StrictVersion(MIN_VERSION):
-        amod.warn('Module supports Kong {} and up (found {})'.format(
-            MIN_VERSION, kong_version))
-        return False
-
-    return True
